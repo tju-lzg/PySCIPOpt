@@ -7,13 +7,8 @@ python:
 notifications:
   email: false
 
-# enable c++11/14 builds
-addons:
-  apt:
-    sources: [ 'ubuntu-toolchain-r-test' ]
-    packages: [ 'libstdc++-4.9-dev' ]
-
 before_install:
+  - conda install -y libc libcxx
   - export VERSION=4.0.1
   - wget http://www.zib.de/miltenberger/SCIPOptSuite-4.0.1-Linux.deb
   - sudo apt-get install ./SCIPOptSuite-4.0.1-Linux.deb
