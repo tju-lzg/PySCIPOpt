@@ -10,8 +10,7 @@ notifications:
 before_install:
   - export VERSION=4.0.1
   - wget http://www.zib.de/miltenberger/SCIPOptSuite-4.0.1-Linux.deb
-  - sudo gdebi SCIPOptSuite-4.0.1-Linux.deb
-  - sudo apt-get -f install
+  - sudo apt-get install SCIPOptSuite-4.0.1-Linux.deb
 
 install:
   - pip install cython networkx pytest-cov codecov
