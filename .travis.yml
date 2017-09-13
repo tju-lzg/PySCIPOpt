@@ -1,17 +1,19 @@
 language: python
 
+services:
+  - docker
+
 python:
-  - '2.7'
-  - '3.6'
+  - 2.7
+  - 3.6
 
 notifications:
   email: false
 
 before_install:
-  - conda install -y libc libcxx
-  - export VERSION=4.0.1
-  - wget http://www.zib.de/miltenberger/SCIPOptSuite-4.0.1-Linux.deb
-  - sudo apt-get install ./SCIPOptSuite-4.0.1-Linux.deb
+  - docker run ubuntu/latest
+  - wget http://www.zib.de/miltenberger/SCIPOptSuite-$VERSION-Linux.deb -O SCIPOptSuite.deb
+  - sudo apt-get install ./SCIPOptSuite.deb
 
 install:
   - pip install cython networkx pytest-cov codecov
