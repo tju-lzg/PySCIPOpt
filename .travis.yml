@@ -11,7 +11,7 @@ notifications:
   email: false
 
 before_install:
-  - docker run ubuntu:latest
+  - docker run -d ubuntu:latest
   - wget http://www.zib.de/miltenberger/SCIPOptSuite-4.0.1-Linux.deb -O SCIPOptSuite.deb
   - sudo apt-get install ./SCIPOptSuite.deb
 
