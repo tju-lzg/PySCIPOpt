@@ -12,7 +12,7 @@ notifications:
 
 before_install:
   - docker run ubuntu:latest
-  - wget http://www.zib.de/miltenberger/SCIPOptSuite-$VERSION-Linux.deb -O SCIPOptSuite.deb
+  - wget http://www.zib.de/miltenberger/SCIPOptSuite-4.0.1-Linux.deb -O SCIPOptSuite.deb
   - sudo apt-get install ./SCIPOptSuite.deb
 
 install:
