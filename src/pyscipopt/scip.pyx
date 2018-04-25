@@ -3,10 +3,13 @@ from os.path import abspath
 from os.path import splitext
 import sys
 import warnings
+import numpy as np
 
 from cpython cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
 from libc.stdio cimport fdopen
+from numpy.math cimport INFINITY, NAN
+
 
 include "expr.pxi"
 include "lp.pxi"
@@ -401,6 +404,20 @@ cdef class Node:
         """Is the node marked to be propagated again?"""
         return SCIPnodeIsPropagatedAgain(self.node)
 
+    def getBranchInfos(self):
+        """Get branching decision of the parent node."""
+        domchg = SCIPnodeGetDomchg(self.node)
+        nboundchgs = SCIPdomchgGetNBoundchgs(domchg)
+        assert nboundchgs == 1
+        boundchg = SCIPdomchgGetBoundchg(domchg, 0)
+
+        result = []
+        result.append(SCIPboundchgGetNewbound(boundchg))
+        result.append(Variable.create(SCIPboundchgGetVar(boundchg)))
+        result.append(SCIPboundchgGetBoundchgtype(boundchg))
+        result.append(SCIPboundchgGetBoundtype(boundchg))
+        result.append(SCIPboundchgIsRedundant(boundchg))
+        return result
 
 cdef class Variable(Expr):
     """Is a linear expression and has SCIP_VAR*"""
@@ -442,6 +459,9 @@ cdef class Variable(Expr):
     def isInLP(self):
         """Retrieve whether the variable is a COLUMN variable that is member of the current LP"""
         return SCIPvarIsInLP(self.var)
+
+    def getIndex(self):
+        return SCIPvarGetIndex(self.var)
 
     def getCol(self):
         """Retrieve column of COLUMN variable"""
@@ -2074,6 +2094,10 @@ cdef class Model:
         """Presolve the problem."""
         PY_SCIP_CALL(SCIPpresolve(self._scip))
 
+    def interrupt(self):
+        """Interrupts the solving process."""
+        PY_SCIP_CALL(SCIPinterruptSolve(self._scip))
+
     def includeEventhdlr(self, Eventhdlr eventhdlr, name, desc):
         """Include an event handler.
 
@@ -2897,6 +2921,112 @@ cdef class Model:
         PY_SCIP_CALL(SCIPchgReoptObjective(self._scip, objsense, _vars, &_coeffs[0], _nvars))
 
         free(_coeffs)
+
+    def getMILPInfos(self):
+        """Inspired from SCIPlpWriteMip
+        http://scip.zib.de/doc/html/lp_8c.php#ad67e42485879a840f72669a2e3ee4514
+        """
+        cdef int i, j, k
+
+        obj_val = SCIPgetLPObjval(self._scip)
+
+        # COLUMNS
+        cdef SCIP_COL** cols = SCIPgetLPCols(self._scip)
+        cdef int ncols = SCIPgetNLPCols(self._scip)
+
+        col_vals = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+        col_types = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
+        col_coefs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+        col_ubs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+        col_lbs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] col_vals_view = col_vals
+        cdef int [:] col_types_view = col_types
+        cdef SCIP_Real [:] col_coefs_view = col_coefs
+        cdef SCIP_Real [:] col_ubs_view = col_ubs
+        cdef SCIP_Real [:] col_lbs_view = col_lbs
+        cdef int col_i
+
+        for i in range(ncols):
+            col_i = SCIPcolGetLPPos(cols[i])
+            col_types_view[col_i] = SCIPvarGetType(SCIPcolGetVar(cols[i]))
+            col_vals[col_i] = SCIPcolGetPrimsol(cols[i])
+            col_coefs_view[col_i] = SCIPcolGetObj(cols[i])
+
+            col_lbs_view[col_i] = SCIPcolGetLb(cols[i])
+            if SCIPisInfinity(self._scip, -col_lbs_view[col_i]):
+                col_lbs_view[col_i] = NAN
+
+            col_ubs_view[col_i] = SCIPcolGetUb(cols[i])
+            if SCIPisInfinity(self._scip, col_ubs_view[col_i]):
+                col_ubs_view[col_i] = NAN
+
+        # ROWS
+        cdef SCIP_ROW** rows = SCIPgetLPRows(self._scip)
+        cdef int nrows = SCIPgetNLPRows(self._scip)
+
+        cdef int nnzrs = 0
+        for i in range(nrows):
+            nnzrs += SCIProwGetNLPNonz(rows[i])
+
+        row_nnzrs = np.empty(shape=(nrows, ), dtype=np.dtype('int32'))
+        row_coefidxs = np.empty(shape=(nnzrs, ), dtype=np.dtype('int32'))
+        row_coefvals = np.empty(shape=(nnzrs, ), dtype=np.dtype('float'))
+        row_lhss = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+        row_rhss = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+        cdef int [:] row_nnzrs_view = row_nnzrs
+        cdef int [:] row_coefidxs_view = row_coefidxs
+        cdef SCIP_Real [:] row_coefvals_view = row_coefvals
+        cdef SCIP_Real [:] row_lhss_view = row_lhss
+        cdef SCIP_Real [:] row_rhss_view = row_rhss
+        cdef SCIP_COL ** row_cols
+        cdef SCIP_Real * row_vals
+
+        j = 0
+        for i in range(nrows):
+
+            # number of coefficients
+            row_nnzrs_view[i] = SCIProwGetNLPNonz(rows[i])
+
+            # coefficient indexes and values
+            row_cols = SCIProwGetCols(rows[i])
+            row_vals = SCIProwGetVals(rows[i])
+            for k in range(row_nnzrs_view[i]):
+                row_coefidxs_view[j+k] = SCIPcolGetLPPos(row_cols[k])
+                row_coefvals_view[j+k] = row_vals[k]
+
+            j += row_nnzrs_view[i]
+
+            # left-hand-side
+            row_lhss_view[i] = SCIProwGetLhs(rows[i])
+            if SCIPisInfinity(self._scip, REALABS(row_lhss_view[i])):
+                row_lhss_view[i] = NAN
+            else:
+                row_lhss_view[i] -= SCIProwGetConstant(rows[i])
+
+            # right-hand-side
+            row_rhss_view[i] = SCIProwGetRhs(rows[i])
+            if SCIPisInfinity(self._scip, REALABS(row_rhss_view[i])):
+                row_rhss_view[i] = NAN
+            else:
+                row_rhss_view[i] -= SCIProwGetConstant(rows[i])
+
+        return {
+            'lp_obj': obj_val,
+            'cols': {
+                'vals': col_vals,
+                'types': col_types,
+                'coefs': col_coefs,
+                'lbs': col_lbs,
+                'ubs': col_ubs,
+            },
+            'rows': {
+                'lhss': row_lhss,
+                'rhss': row_rhss,
+                'nnzrs': row_nnzrs,
+                'coefidxs': row_coefidxs,
+                'coefvals': row_coefvals,
+            }
+        }
 
 # debugging memory management
 def is_memory_freed():

@@ -34,6 +34,11 @@ cdef extern from "scip/scip.h":
         SCIP_BOUNDTYPE_LOWER = 0
         SCIP_BOUNDTYPE_UPPER = 1
 
+    ctypedef enum SCIP_BOUNDCHGTYPE:
+        SCIP_BOUNDCHGTYPE_BRANCHING = 0
+        SCIP_BOUNDCHGTYPE_CONSINFER = 1
+        SCIP_BOUNDCHGTYPE_PROPINFER = 2
+
     ctypedef enum SCIP_RESULT:
         SCIP_DIDNOTRUN   =   1
         SCIP_DELAYED     =   2
@@ -353,6 +358,12 @@ cdef extern from "scip/scip.h":
     ctypedef struct SCIP_BOUNDTYPE:
         pass
 
+    ctypedef struct SCIP_BOUNDCHG:
+        pass
+
+    ctypedef struct SCIP_DOMCHG:
+        pass
+
     ctypedef struct SCIP_BDCHGIDX:
         pass
 
@@ -470,6 +481,7 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPsolve(SCIP* scip)
     SCIP_RETCODE SCIPfreeTransform(SCIP* scip)
     SCIP_RETCODE SCIPpresolve(SCIP* scip)
+    SCIP_RETCODE SCIPinterruptSolve(SCIP* scip)
 
     # Node Methods
     SCIP_NODE* SCIPgetCurrentNode(SCIP* scip)
@@ -481,6 +493,7 @@ cdef extern from "scip/scip.h":
     SCIP_NODETYPE SCIPnodeGetType(SCIP_NODE* node)
     SCIP_Bool SCIPnodeIsActive(SCIP_NODE* node)
     SCIP_Bool SCIPnodeIsPropagatedAgain(SCIP_NODE* node)
+    SCIP_DOMCHG* SCIPnodeGetDomchg(SCIP_NODE* node)
 
     # Variable Methods
     SCIP_RETCODE SCIPcreateVarBasic(SCIP* scip,
@@ -517,6 +530,18 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPvarGetUbLocal(SCIP_VAR* var)
     SCIP_Real SCIPvarGetObj(SCIP_VAR* var)
     SCIP_Real SCIPvarGetLPSol(SCIP_VAR* var)
+    int SCIPvarGetIndex(SCIP_VAR* var)
+
+    # SCIP_DOMCHG Methods
+    int SCIPdomchgGetNBoundchgs(SCIP_DOMCHG* domchg)
+    SCIP_BOUNDCHG* SCIPdomchgGetBoundchg(SCIP_DOMCHG* domchg, int pos)
+
+    # SCIP_BOUNDCHG Methods
+    SCIP_Real SCIPboundchgGetNewbound(SCIP_BOUNDCHG* boundchg)
+    SCIP_VAR* SCIPboundchgGetVar(SCIP_BOUNDCHG* boundchg)
+    SCIP_BOUNDCHGTYPE SCIPboundchgGetBoundchgtype(SCIP_BOUNDCHG* boundchg)
+    SCIP_BOUNDTYPE SCIPboundchgGetBoundtype(SCIP_BOUNDCHG* boundchg)
+    SCIP_Bool SCIPboundchgIsRedundant(SCIP_BOUNDCHG* boundchg)
 
     # LP Methods
     SCIP_RETCODE SCIPgetLPColsData(SCIP* scip, SCIP_COL*** cols, int* ncols)
@@ -849,6 +874,20 @@ cdef extern from "scip/scip.h":
     SCIP_Bool SCIPisFeasNegative(SCIP* scip, SCIP_Real val)
     SCIP_Bool SCIPisInfinity(SCIP* scip, SCIP_Real val)
     SCIP_Bool SCIPisLE(SCIP* scip, SCIP_Real val1, SCIP_Real val2)
+    SCIP_Real SCIPgetHugeValue(SCIP *scip)
+    SCIP_Bool SCIPisEQ(SCIP *scip, SCIP_Real val1, SCIP_Real val2)
+    SCIP_Bool SCIPisLT(SCIP *scip, SCIP_Real val1, SCIP_Real val2)
+    SCIP_Bool SCIPisGT(SCIP *scip, SCIP_Real val1, SCIP_Real val2)
+    SCIP_Bool SCIPisGE(SCIP *scip, SCIP_Real val1, SCIP_Real val2)
+    SCIP_Bool SCIPisHugeValue(SCIP *scip, SCIP_Real val)
+    SCIP_Bool SCIPisPositive(SCIP *scip, SCIP_Real val)
+    SCIP_Bool SCIPisNegative(SCIP *scip, SCIP_Real val)
+    SCIP_Bool SCIPisIntegral(SCIP *scip, SCIP_Real val)
+    SCIP_Bool SCIPisScalingIntegral(SCIP *scip, SCIP_Real val, SCIP_Real scalar)
+    SCIP_Bool SCIPisFracIntegral(SCIP *scip, SCIP_Real val)
+    SCIP_Real SCIPfloor(SCIP *scip, SCIP_Real val)
+    SCIP_Real SCIPceil(SCIP *scip, SCIP_Real val)
+    SCIP_Real SCIPround(SCIP *scip, SCIP_Real val)
 
     # Statistic Methods
     SCIP_RETCODE SCIPprintStatistics(SCIP* scip, FILE* outfile)
@@ -906,6 +945,15 @@ cdef extern from "scip/scip.h":
     SCIP_Bool    SCIPlpiIsInfinity(SCIP_LPI* lpi, SCIP_Real val)
     SCIP_Bool    SCIPlpiIsPrimalFeasible(SCIP_LPI* lpi)
     SCIP_Bool    SCIPlpiIsDualFeasible(SCIP_LPI* lpi)
+
+    # LP functions
+    SCIP_Real    SCIPgetLPObjval(SCIP *scip)
+    SCIP_RETCODE SCIPgetLPColsData(SCIP *scip, SCIP_COL ***cols, int *ncols)
+    SCIP_COL**   SCIPgetLPCols(SCIP *scip)
+    int          SCIPgetNLPCols(SCIP *scip)
+    SCIP_RETCODE SCIPgetLPRowsData(SCIP *scip, SCIP_ROW ***rows, int *nrows)
+    SCIP_ROW**   SCIPgetLPRows(SCIP *scip)
+    int          SCIPgetNLPRows(SCIP *scip)
 
     #re-optimization routines
     SCIP_RETCODE SCIPfreeReoptSolve(SCIP* scip)
@@ -1257,3 +1305,13 @@ cdef extern from "scip/pub_lp.h":
     SCIP_Real SCIPcolGetPrimsol(SCIP_COL* col)
     SCIP_Real SCIPcolGetLb(SCIP_COL* col)
     SCIP_Real SCIPcolGetUb(SCIP_COL* col)
+    SCIP_Real SCIPcolGetObj(SCIP_COL *col)
+
+cdef extern from "scip/pub_var.h":
+    SCIP_VARTYPE SCIPvarGetType(SCIP_VAR *var)
+    SCIP_Bool SCIPvarIsBinary(SCIP_VAR *var)
+    SCIP_Bool SCIPvarIsIntegral(SCIP_VAR * var)
+
+cdef extern from "scip/def.h":
+    SCIP_Real REALABS(SCIP_Real x)
+
