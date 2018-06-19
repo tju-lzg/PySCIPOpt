@@ -2327,6 +2327,24 @@ cdef class Model:
         branchrule.model = <Model>weakref.proxy(self)
         Py_INCREF(branchrule)
 
+    def getLPBranchCands(self):
+        """Get the branching candidates from the LP relaxation.
+        """
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
+        cdef int nlpcands
+        cdef int npriolpcands
+        cdef int nfracimplvars
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
+
+        variables = [Variable.create(lpcands[i]) for i in range(nlpcands)]
+
+        return variables
+
+    def branchVar(self, Variable var):
+        PY_SCIP_CALL(SCIPbranchVar(self._scip, var.var, NULL, NULL, NULL))
+
     # Solution functions
 
     def createSol(self, Heur heur = None):

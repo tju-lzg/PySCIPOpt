@@ -864,6 +864,16 @@ cdef extern from "scip/scip.h":
                                        SCIP_RETCODE (*branchruleexecps) (SCIP* scip, SCIP_BRANCHRULE* branchrule, SCIP_Bool allowaddcons, SCIP_RESULT* result),
                                        SCIP_BRANCHRULEDATA* branchruledata)
     SCIP_BRANCHRULEDATA* SCIPbranchruleGetData(SCIP_BRANCHRULE* branchrule)
+    SCIP_RETCODE SCIPgetLPBranchCands(SCIP *scip,
+                                      SCIP_VAR ***    lpcands,
+                                      SCIP_Real **  	lpcandssol,
+                                      SCIP_Real **  	lpcandsfrac,
+		                                  int *  	nlpcands,
+		                                  int *  	npriolpcands,
+		                                  int *  	nfracimplvars
+	                                    )
+    SCIP_RETCODE SCIPbranchVar(SCIP * scip, SCIP_VAR * var, SCIP_NODE ** downchild, SCIP_NODE ** eqchild, SCIP_NODE ** upchild)
+    SCIP_RETCODE SCIPcreateChild(SCIP * scip, SCIP_NODE **	node, SCIP_Real nodeselprio, SCIP_Real estimate)
 
     # Numerical Methods
     SCIP_Real SCIPinfinity(SCIP* scip)
