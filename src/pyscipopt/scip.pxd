@@ -311,7 +311,8 @@ cdef extern from "scip/scip.h":
         pass
 
     ctypedef struct SCIP_BRANCHRULE:
-        pass
+        char* name
+        SCIP_RETCODE (*branchexeclp)(SCIP* scip, SCIP_BRANCHRULE* branchrule, SCIP_Bool allowaddcons, SCIP_RESULT* result)
 
     ctypedef struct SCIP_BRANCHRULEDATA:
         pass
@@ -880,7 +881,9 @@ cdef extern from "scip/scip.h":
 		                                    SCIP_Real *   branchcandsfrac,
 		                                    int  	      nbranchcands,
 		                                    SCIP_Bool  	  executebranching,
-		                                    SCIP_RESULT*  result) 		
+		                                    SCIP_RESULT*  result)
+    SCIP_BRANCHRULE* SCIPfindBranchrule(SCIP*        scip,
+                                        const char*  name)
 
     # Numerical Methods
     SCIP_Real SCIPinfinity(SCIP* scip)
@@ -1332,3 +1335,6 @@ cdef extern from "scip/pub_var.h":
 cdef extern from "scip/def.h":
     SCIP_Real REALABS(SCIP_Real x)
 
+cdef extern from "scip/struct_branch.h":
+    cdef struct SCIP_Branchrule:
+        pass

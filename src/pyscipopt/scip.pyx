@@ -35,6 +35,8 @@ if sys.version_info >= (3, 0):
 else:
     str_conversion = lambda x:x
 
+from libc.stdio cimport printf
+
 # Mapping the SCIP_RESULT enum to a python class
 # This is required to return SCIP_RESULT in the python code
 # In __init__.py this is imported as SCIP_RESULT to keep the
@@ -3064,6 +3066,17 @@ cdef class Model:
                 'coefvals': row_coefvals,
             }
         }
+
+    def executeBranchRule(self, str name, allowaddcons):
+        cdef SCIP_BRANCHRULE*  branchrule
+        cdef SCIP_RESULT result
+        branchrule = SCIPfindBranchrule(self._scip, name.encode("UTF-8"))
+        if branchrule == NULL:
+            print("Error, branching rule not found!")
+            return PY_SCIP_RESULT.DIDNOTFIND
+        else:
+            branchrule.branchexeclp(self._scip, branchrule, allowaddcons, &result)
+            return result
 
 # debugging memory management
 def is_memory_freed():
