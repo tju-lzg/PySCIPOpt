@@ -419,6 +419,7 @@ cdef class Node:
         result.append(SCIPboundchgIsRedundant(boundchg))
         return result
 
+
 cdef class Variable(Expr):
     """Is a linear expression and has SCIP_VAR*"""
     cdef SCIP_VAR* var
@@ -2258,7 +2259,7 @@ cdef class Model:
         :param desc: description of propagator
         :param presolpriority: presolving priority of the propgator (>= 0: before, < 0: after constraint handlers)
         :param presolmaxrounds: maximal number of presolving rounds the propagator participates in (-1: no limit)
-        :param proptiming: positions in the node solving loop where propagation method of constraint handlers should be executed
+        :param proptiming: positions class Modelin the node solving loop where propagation method of constraint handlers should be executed
         :param presoltiming: timing mask of the constraint handler's presolving method (Default value = SCIP_PRESOLTIMING_FAST)
         :param priority: priority of the propagator (Default value = 1)
         :param freq: frequency for calling propagator (Default value = 1)
@@ -2342,8 +2343,26 @@ cdef class Model:
 
         return variables
 
+    def getChildren(self):
+        cdef SCIP_NODE** children
+        cdef int nchildren
+        PY_SCIP_CALL(SCIPgetChildren(self._scip, &children, &nchildren))
+        return [Node.create(children[i]) for i in range(nchildren)]
+
     def branchVar(self, Variable var):
         PY_SCIP_CALL(SCIPbranchVar(self._scip, var.var, NULL, NULL, NULL))
+
+    def reliabilityPseudocostBranching(self):
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
+        cdef int nlpcands
+        cdef int npriolpcands
+        cdef int nfracimplvars
+        cdef SCIP_RESULT result
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
+        PY_SCIP_CALL(SCIPexecRelpscostBranching(self._scip, lpcands, lpcandssol, lpcandsfrac, nlpcands, True, &result))
+        return result
 
     # Solution functions
 

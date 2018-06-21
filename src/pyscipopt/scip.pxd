@@ -494,6 +494,7 @@ cdef extern from "scip/scip.h":
     SCIP_Bool SCIPnodeIsActive(SCIP_NODE* node)
     SCIP_Bool SCIPnodeIsPropagatedAgain(SCIP_NODE* node)
     SCIP_DOMCHG* SCIPnodeGetDomchg(SCIP_NODE* node)
+    SCIP_RETCODE SCIPgetChildren(SCIP* scip, SCIP_NODE*** children, int* nchildren)
 
     # Variable Methods
     SCIP_RETCODE SCIPcreateVarBasic(SCIP* scip,
@@ -865,15 +866,21 @@ cdef extern from "scip/scip.h":
                                        SCIP_BRANCHRULEDATA* branchruledata)
     SCIP_BRANCHRULEDATA* SCIPbranchruleGetData(SCIP_BRANCHRULE* branchrule)
     SCIP_RETCODE SCIPgetLPBranchCands(SCIP *scip,
-                                      SCIP_VAR ***    lpcands,
-                                      SCIP_Real **  	lpcandssol,
-                                      SCIP_Real **  	lpcandsfrac,
-		                                  int *  	nlpcands,
-		                                  int *  	npriolpcands,
-		                                  int *  	nfracimplvars
-	                                    )
+                                      SCIP_VAR ***  lpcands,
+                                      SCIP_Real **  lpcandssol,
+                                      SCIP_Real **  lpcandsfrac,
+		                              int *  	    nlpcands,
+		                              int *  	    npriolpcands,
+		                              int *   	    nfracimplvars)
     SCIP_RETCODE SCIPbranchVar(SCIP * scip, SCIP_VAR * var, SCIP_NODE ** downchild, SCIP_NODE ** eqchild, SCIP_NODE ** upchild)
     SCIP_RETCODE SCIPcreateChild(SCIP * scip, SCIP_NODE **	node, SCIP_Real nodeselprio, SCIP_Real estimate)
+    SCIP_RETCODE SCIPexecRelpscostBranching(SCIP*	scip,
+		                                    SCIP_VAR **   branchcands,
+		                                    SCIP_Real *   branchcandssol,
+		                                    SCIP_Real *   branchcandsfrac,
+		                                    int  	      nbranchcands,
+		                                    SCIP_Bool  	  executebranching,
+		                                    SCIP_RESULT*  result) 		
 
     # Numerical Methods
     SCIP_Real SCIPinfinity(SCIP* scip)
