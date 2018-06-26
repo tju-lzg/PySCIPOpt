@@ -37,4 +37,11 @@ Instructions for installation on rossoverde
     make install INSTALLDIR=/local_workspace/chetdidi/scipoptsuite/
     ```
 
-That should be it! You are now ready to install pyscipopt.
+5. In your bashrc file, add environment variables for pyscipopt.
+
+    ```
+    export SCIPOPTDIR="/local_workspace/<username>/scipoptsuite"
+    alias scip='/local_workspace/<username>/scipoptsuite/bin/scip'
+    ```
+
+That should be it! You are now ready to install pyscipopt using `pip install git+https://github.com/ds4dm/PySCIPOpt`.
