@@ -3067,6 +3067,37 @@ cdef class Model:
             }
         }
 
+	
+    def getAllMIPRepr(self):
+        """Inspired from getMILPInfos
+        """
+		
+		# FROM MODEL CLASS
+        cdef int nnodes = SCIPgetNNodes(self._scip)  	# getNNodes
+        cdef float gap = SCIPgetGap(self._scip)  		# getGap
+        cdef int depth = SCIPgetDepth(self._scip)  		# getDepth
+        cands = self.getLPBranchCands()
+		
+		# FROM NODE CLASS
+        cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
+        cdef float node_est = SCIPnodeGetEstimate(node)
+        cdef float node_lb = SCIPnodeGetLowerbound(node)
+        # py_node = Node(node)
+        # branch_info = py_node.getBranchInfos()
+		
+		# FROM VARIABLE CLASS
+		
+        return {
+            'nnodes': nnodes, 
+            'gap' : gap,
+            'depth' : depth,
+            'num_cands' : len(cands),
+            'node_est': node_est,
+            'node_lb': node_lb,
+            # 'branched_on': branch_info[1]
+        }
+		
+
     def executeBranchRule(self, str name, allowaddcons):
         cdef SCIP_BRANCHRULE*  branchrule
         cdef SCIP_RESULT result

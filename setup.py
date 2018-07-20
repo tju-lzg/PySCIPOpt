@@ -1,5 +1,6 @@
 from setuptools import setup, Extension
 import os, platform, sys, re
+import numpy as np
 
 # look for environment variable that specifies path to SCIP Opt lib and headers
 scipoptdir = os.environ.get('SCIPOPTDIR', '').strip('"')
@@ -77,5 +78,6 @@ setup(
     ext_modules = extensions,
     packages = ['pyscipopt'],
     package_dir = {'pyscipopt': packagedir},
-    package_data = {'pyscipopt': ['scip.pyx', 'scip.pxd', '*.pxi']}
+    package_data = {'pyscipopt': ['scip.pyx', 'scip.pxd', '*.pxi']},
+    include_dirs = [np.get_include()]
 )
