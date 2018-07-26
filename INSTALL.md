@@ -1,7 +1,7 @@
 Instructions for installation on your own computer
 --------------------------------------------------
 
-Install SCIP. The simplest is to download a pre-compiled version, e.g. for linux [[deb](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-Linux.deb)/[rpm](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-Linux.rpm)], Mac [[dmg](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-Darwin.dmg)] or Windows [[exe](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-win64-VS15.exe)]. Then install our branch of pyscipopt by running `pip install git+https://github.com/ds4dm/PySCIPOpt`.
+Install SCIP. The simplest is to download a pre-compiled version, e.g. for linux [[deb](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-Linux.deb)/[rpm](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-Linux.rpm)], Mac [[dmg](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-Darwin.dmg)] or Windows [[exe](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-win64-VS15.exe)]. Then install our branch of pyscipopt by running `pip install git+https://github.com/ds4dm/PySCIPOpt@maxime`.
 
 
 Instructions for installation on rossoverde
@@ -45,6 +45,8 @@ Install SCIP. This has several steps:
     make install INSTALLDIR=/local_workspace/<username>/scipoptsuite/
     ```
 
+    You can now remove the source code tar and folder if desired, as they are no longer needed.
+
 5. In your bashrc file, add environment variables for pyscipopt.
 
     ```
@@ -52,4 +54,4 @@ Install SCIP. This has several steps:
     alias scip='/local_workspace/<username>/scipoptsuite/bin/scip'
     ```
 
-That should be it! Then install pyscipopt by running `pip install git+https://github.com/ds4dm/PySCIPOpt`.
+That should be it! Then install pyscipopt by running `pip install git+https://github.com/ds4dm/PySCIPOpt@maxime`.

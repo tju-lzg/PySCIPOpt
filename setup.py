@@ -1,4 +1,5 @@
 from setuptools import setup, Extension
+import numpy
 import os, platform, sys, re
 
 # look for environment variable that specifies path to SCIP Opt lib and headers
@@ -41,7 +42,7 @@ if "--debug" in sys.argv:
     sys.argv.remove("--debug")
 
 extensions = [Extension('pyscipopt.scip', [os.path.join(packagedir, 'scip'+ext)],
-                          include_dirs=[includedir],
+                          include_dirs=[includedir, numpy.get_include()],
                           library_dirs=[libdir],
                           libraries=[libname],
                           runtime_library_dirs=runtime_library_dirs,
