@@ -242,10 +242,10 @@ cdef extern from "scip/scip.h":
     ctypedef double SCIP_Real
 
     ctypedef struct SCIP:
-        pass
+        SCIP_STAT* stat
 
     ctypedef struct SCIP_VAR:
-        pass
+        SCIP_HISTORY*  history
 
     ctypedef struct SCIP_CONS:
         pass
@@ -1335,6 +1335,31 @@ cdef extern from "scip/pub_var.h":
 cdef extern from "scip/def.h":
     SCIP_Real REALABS(SCIP_Real x)
 
+
 cdef extern from "scip/struct_branch.h":
     cdef struct SCIP_Branchrule:
         pass
+ 
+cdef extern from "scip/type_history.h":
+    ctypedef struct SCIP_HISTORY:
+        SCIP_Real 	pscostcount [2]
+        SCIP_Real 	pscostweightedmean [2]
+        SCIP_Real 	pscostvariance [2]
+        SCIP_Real 	vsids [2]
+        SCIP_Real 	conflengthsum [2]
+        SCIP_Real 	inferencesum [2]
+        SCIP_Real 	cutoffsum [2]
+        SCIP_Longint 	nactiveconflicts [2]
+        SCIP_Longint 	nbranchings [2]
+        SCIP_Longint 	branchdepthsum [2]
+
+    ctypedef enum SCIP_BRANCHDIR:
+        SCIP_BRANCHDIR_DOWNWARDS = 0
+        SCIP_BRANCHDIR_UPWARDS   = 1
+        SCIP_BRANCHDIR_FIXED     = 2
+        SCIP_BRANCHDIR_AUTO      = 3
+        
+cdef extern from "scip/struct_stat.h":
+    ctypedef struct SCIP_STAT:
+        SCIP_HISTORY * 	glbhistory
+        SCIP_HISTORY * 	glbhistorycrun

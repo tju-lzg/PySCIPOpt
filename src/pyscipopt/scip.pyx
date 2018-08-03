@@ -503,8 +503,34 @@ cdef class Variable(Expr):
     def getLPSol(self):
         """Retrieve the current LP solution value of variable"""
         return SCIPvarGetLPSol(self.var)
-
-
+    
+    def getVarRepr(self):
+        """Inspired from getMILPInfos.
+        Extract and return (candidate) variable representation as dictionary.
+        -------
+        """
+        cdef int var_idx = SCIPvarGetIndex(self.var)
+        cdef SCIP_Real obj_v = SCIPvarGetObj(self.var)
+        cdef SCIP_Real lpsol_v = SCIPvarGetLPSol(self.var)
+        
+        # check
+        cdef SCIP_HISTORY * history = self.var.history
+        # SCIPhistoryReset?
+        
+        #def branch_history(variable):
+        #    return [variable['vsids'], variable['inferencesum'],
+        #           variable['nbranchings'], variable['branchdepthsum']]
+        # branch_hist = branch_history(history[var_idx])
+        branch_hist = [history.nbranchings[var_idx], history.branchdepthsum[var_idx]]
+        
+        return {
+            'var_idx': var_idx,
+            'obj_v': obj_v,
+            'lpsol_v': lpsol_v,
+            'branch_hist': branch_hist
+        }    
+        
+        
 cdef class Constraint:
     cdef SCIP_CONS* cons
     cdef public object data #storage for python user
@@ -3067,26 +3093,80 @@ cdef class Model:
             }
         }
 
-	
-    def getAllMIPRepr(self):
-        """Inspired from getMILPInfos
+    def getNodeRepr(self):
+        """ Inspired from getMILPInfos.
+		Extract and return node LP representation as dictionary.
+		-------
         """
-		
-		# FROM MODEL CLASS
-        cdef int nnodes = SCIPgetNNodes(self._scip)  	# getNNodes
-        cdef float gap = SCIPgetGap(self._scip)  		# getGap
-        cdef int depth = SCIPgetDepth(self._scip)  		# getDepth
+		# todo: consider moving within Class Node
+        obj_val = SCIPgetLPObjval(self._scip)
         cands = self.getLPBranchCands()
 		
 		# FROM NODE CLASS
         cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
+        cdef SCIP_Longint node_num = SCIPnodeGetNumber(node)
+        cdef int depth = SCIPnodeGetDepth(node)
+        cdef SCIP_Real node_lb = SCIPnodeGetLowerbound(node)
+        cdef SCIP_Real node_est = SCIPnodeGetEstimate(node)
+		# SCIPnodeGetNAddedConss
+		# SCIPnodeIsPropagatedAgain
+        
+		# see getBranchInfos for more on the effect of branching in the parent
+        domchg = SCIPnodeGetDomchg(node)
+        nboundchgs = SCIPdomchgGetNBoundchgs(domchg)
+        if nboundchgs == 0:  # root node case
+            branched_on = None
+            branched_on_idx = 0
+            # parent_num = None
+        else:
+            assert nboundchgs == 1
+            boundchg = SCIPdomchgGetBoundchg(domchg, 0)
+            branched_on = Variable.create(SCIPboundchgGetVar(boundchg))
+            branched_on_idx = branched_on.getIndex()
+            # parent_num = SCIPnodeGetNumber(SCIPnodeGetParent(node))
+		
+		# SCIPnodeGetAncestorBranchingPath
+		
+		# is_integer_feasible (bool)
+		# num_feasibilities (from getLPBranchCands)
+		# num_fixed_variables at node
+		# num_active_constraints
+		
+        return {
+            'node_num': node_num,
+            'depth': depth,
+            'obj_val': obj_val,
+            'node_lb': node_lb, 
+            'node_est': node_est,
+            'nboundchgs': nboundchgs,
+            'branched_on': branched_on,
+            'branched_on_idx': branched_on_idx,
+            # 'parent_num': parent_num,
+            'num_cands': len(cands)
+        }
+	
+    	
+    def getAllMIPRepr(self):
+        """Inspired from getMILPInfos
+        """
+        
+        nvars = SCIPgetNVars(self._scip)
+        
+        # FROM MODEL CLASS
+        cdef int nnodes = SCIPgetNNodes(self._scip)     # getNNodes
+        cdef float gap = SCIPgetGap(self._scip)         # getGap
+        cdef int depth = SCIPgetDepth(self._scip)       # getDepth
+        cands = self.getLPBranchCands()
+        
+        # FROM NODE CLASS
+        cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
         cdef float node_est = SCIPnodeGetEstimate(node)
         cdef float node_lb = SCIPnodeGetLowerbound(node)
-        # py_node = Node(node)
+        # py_node = Node(SCIPgetCurrentNode(self._scip))
         # branch_info = py_node.getBranchInfos()
-		
-		# FROM VARIABLE CLASS
-		
+        
+        # FROM VARIABLE CLASS
+        
         return {
             'nnodes': nnodes, 
             'gap' : gap,
@@ -3096,7 +3176,7 @@ cdef class Model:
             'node_lb': node_lb,
             # 'branched_on': branch_info[1]
         }
-		
+        
 
     def executeBranchRule(self, str name, allowaddcons):
         cdef SCIP_BRANCHRULE*  branchrule
@@ -3108,6 +3188,8 @@ cdef class Model:
         else:
             branchrule.branchexeclp(self._scip, branchrule, allowaddcons, &result)
             return result
+            
+     
 
 # debugging memory management
 def is_memory_freed():
