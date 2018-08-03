@@ -9,7 +9,7 @@ from cpython cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
 from libc.stdio cimport fdopen
 from numpy.math cimport INFINITY, NAN
-
+from libc.math cimport sqrt as SQRT
 
 include "expr.pxi"
 include "lp.pxi"
@@ -3065,6 +3065,205 @@ cdef class Model:
                 'coefidxs': row_coefidxs,
                 'coefvals': row_coefvals,
             }
+        }
+
+    def getState(self):
+        cdef SCIP* scip = self._scip
+        cdef int i, j, k, col_i
+        cdef SCIP_Real sim, prod
+
+        # COLUMNS
+        cdef SCIP_COL** cols = SCIPgetLPCols(scip)
+        cdef int ncols = SCIPgetNLPCols(scip)
+
+        col_vals = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] col_vals_view = col_vals
+
+        col_types = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
+        cdef int [:] col_types_view = col_types
+
+        col_coefs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] col_coefs_view = col_coefs
+
+        col_ubs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] col_ubs_view = col_ubs
+
+        col_lbs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] col_lbs_view = col_lbs
+
+        col_basestats = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
+        cdef int [:] col_basestats_view = col_basestats
+
+        col_redcosts = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] col_redcosts_view = col_redcosts
+
+        col_ages = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
+        cdef int [:] col_ages_view = col_ages
+
+        for i in range(ncols):
+            col_i = SCIPcolGetLPPos(cols[i])
+
+            # Variable type
+            col_types_view[col_i] = SCIPvarGetType(SCIPcolGetVar(cols[i]))
+
+            # Solution value
+            col_vals[col_i] = SCIPcolGetPrimsol(cols[i])
+
+            # Objective coefficient
+            col_coefs_view[col_i] = SCIPcolGetObj(cols[i])
+
+            # Lower bound
+            col_lbs_view[col_i] = SCIPcolGetLb(cols[i])
+            if SCIPisInfinity(self._scip, -col_lbs_view[col_i]):
+                col_lbs_view[col_i] = NAN
+
+            # Upper bound
+            col_ubs_view[col_i] = SCIPcolGetUb(cols[i])
+            if SCIPisInfinity(self._scip, col_ubs_view[col_i]):
+                col_ubs_view[col_i] = NAN
+
+            # Basis status
+            col_basestats_view[i] = SCIPcolGetBasisStatus(cols[i])
+
+            # Reduced cost
+            col_redcosts_view[i] = SCIPgetColRedcost(scip, cols[i])
+
+            # Age
+            col_ages_view[i] = cols[i].age
+
+        # ROWS
+        cdef int nrows = SCIPgetNLPRows(scip)
+        cdef SCIP_ROW** rows = SCIPgetLPRows(scip)
+
+        row_nnzrs = np.empty(shape=(nrows, ), dtype=np.dtype('int32'))
+        cdef int [:] row_nnzrs_view = row_nnzrs
+
+        row_lhss = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] row_lhss_view = row_lhss
+
+        row_rhss = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] row_rhss_view = row_rhss
+
+        row_dualsols = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] row_dualsols_view = row_dualsols
+
+        row_basestats = np.empty(shape=(nrows, ), dtype=np.dtype('int32'))
+        cdef int [:] row_basestats_view = row_basestats
+
+        row_ages = np.empty(shape=(nrows, ), dtype=np.dtype('int32'))
+        cdef int [:] row_ages_view = row_ages
+
+        row_activities = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] row_activities_view = row_activities
+
+        row_objcossims = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] row_objcossims_view = row_objcossims
+
+        cdef int nnzrs = 0
+        for i in range(nrows):
+
+            # number of coefficients
+            row_nnzrs_view[i] = SCIProwGetNLPNonz(rows[i])
+            nnzrs += row_nnzrs_view[i]
+
+            # left-hand-side
+            row_lhss_view[i] = SCIProwGetLhs(rows[i])
+            if SCIPisInfinity(scip, REALABS(row_lhss_view[i])):
+                row_lhss_view[i] = NAN
+            else:
+                row_lhss_view[i] -= SCIProwGetConstant(rows[i])
+
+            # right-hand-side
+            row_rhss_view[i] = SCIProwGetRhs(rows[i])
+            if SCIPisInfinity(scip, REALABS(row_rhss_view[i])):
+                row_rhss_view[i] = NAN
+            else:
+                row_rhss_view[i] -= SCIProwGetConstant(rows[i])
+
+            # Dual solution
+            row_dualsols_view[i] = SCIProwGetDualsol(rows[i])
+
+            # Basis status
+            row_basestats_view[i] = SCIProwGetBasisStatus(rows[i])
+
+            # Age
+            row_ages_view[i] = SCIProwGetAge(rows[i])
+
+            # Activity
+            row_activities_view[i] = SCIProwGetLPActivity(rows[i], scip.set, scip.stat, scip.lp)
+
+            # Objective cosine similarity
+            # inspired by SCIProwGetObjParallelism()
+
+            SCIPlpRecalculateObjSqrNorm(scip.set, scip.lp)
+         
+            prod = rows[i].sqrnorm * scip.lp.objsqrnorm
+            sim = rows[i].objprod / SQRT(prod) if SCIPisPositive(scip, prod) else 0.0
+
+            row_objcossims_view[i] = sim
+
+        row_coefidxs = np.empty(shape=(nnzrs, ), dtype=np.dtype('int32'))
+        cdef int [:] row_coefidxs_view = row_coefidxs
+
+        row_coefvals = np.empty(shape=(nnzrs, ), dtype=np.dtype('float'))
+        cdef SCIP_Real [:] row_coefvals_view = row_coefvals
+
+        j = 0
+        cdef SCIP_COL ** row_cols
+        cdef SCIP_Real * row_vals
+        for i in range(nrows):
+
+            # coefficient indexes and values
+            row_cols = SCIProwGetCols(rows[i])
+            row_vals = SCIProwGetVals(rows[i])
+            for k in range(row_nnzrs_view[i]):
+                row_coefidxs_view[j+k] = SCIPcolGetLPPos(row_cols[k])
+                row_coefvals_view[j+k] = row_vals[k]
+
+            j += row_nnzrs_view[i]
+
+
+        return {
+            'global': {
+                'nnodes': SCIPgetNNodes(scip),
+                'ninternalnodes': scip.stat.ninternalnodes,
+                'ncreatednodes': scip.stat.ncreatednodes,
+                'nfeasleaves': scip.stat.nfeasleaves,
+                'ninfeasleaves': scip.stat.ninfeasleaves,
+
+                'maxdepth': SCIPgetMaxDepth(scip),
+
+                'nlps': SCIPgetNLPs(scip),
+                'ninitlps': scip.stat.ninitlps,
+                'ndivinglps': scip.stat.ndivinglps,
+                'nnodelps': SCIPgetNNodeLPs(scip),
+             },
+            'node': {
+                'col': {
+                    'vals': col_vals,
+                    'types': col_types,
+                    'coefs': col_coefs,
+                    'lbs': col_lbs,
+                    'ubs': col_ubs,
+                    'basestats': col_basestats,
+                    'redcosts': col_redcosts,
+                    'ages': col_ages,
+                },
+                'row': {
+                    'lhss': row_lhss,
+                    'rhss': row_rhss,
+                    'nnzrs': row_nnzrs,
+                    'dualsols': row_dualsols,
+                    'basestats': row_basestats,
+                    'ages': row_ages,
+                    'activities': row_activities,
+                    'objcossims': row_objcossims,
+                },
+                'nzrcoef': {
+                    'colidxs': row_coefidxs,
+                    'vals': row_coefvals,
+                },
+            },
         }
 
     def executeBranchRule(self, str name, allowaddcons):

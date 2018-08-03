@@ -241,7 +241,9 @@ cdef extern from "scip/scip.h":   # SCIP internal types
     ctypedef double SCIP_Real
 
     ctypedef struct SCIP:
+        SCIP_SET* set
         SCIP_STAT* stat
+        SCIP_LP* lp
 
     ctypedef struct SCIP_VAR:
         pass
@@ -250,10 +252,11 @@ cdef extern from "scip/scip.h":   # SCIP internal types
         pass
 
     ctypedef struct SCIP_ROW:
-        pass
+        SCIP_Real objprod
+        SCIP_Real sqrnorm
 
     ctypedef struct SCIP_COL:
-        pass
+        int age
 
     ctypedef struct SCIP_SOL:
         pass
@@ -401,6 +404,12 @@ cdef extern from "scip/scip.h":   # SCIP internal types
         SCIP_VAR* var1
         SCIP_VAR* var2
         SCIP_Real coef
+
+    ctypedef struct SCIP_LP:
+        SCIP_Real objsqrnorm
+
+    ctypedef struct SCIP_SET:
+        pass
 
     # General SCIP Methods
     SCIP_RETCODE SCIPcreate(SCIP** scip)
@@ -611,6 +620,9 @@ cdef extern from "scip/scip.h":   # SCIP internal types
     SCIP_RETCODE SCIPaddSol(SCIP* scip, SCIP_SOL* sol, SCIP_Bool* stored)
     SCIP_RETCODE SCIPreadSol(SCIP* scip, const char* filename)
     SCIP_RETCODE SCIPreadSolFile(SCIP* scip, const char* filename, SCIP_SOL* sol, SCIP_Bool xml, SCIP_Bool*	partial, SCIP_Bool*	error)
+
+    # Column methods
+    SCIP_Real SCIPgetColRedcost(SCIP* scip, SCIP_COL* col)
 
     # Row Methods
     SCIP_RETCODE SCIPcreateRow(SCIP* scip, SCIP_ROW** row, const char* name, int len, SCIP_COL** cols, SCIP_Real* vals,
@@ -912,6 +924,8 @@ cdef extern from "scip/scip.h":   # SCIP internal types
     SCIP_RETCODE SCIPprintStatistics(SCIP* scip, FILE* outfile)
     SCIP_Longint SCIPgetNNodes(SCIP* scip)
     SCIP_Longint SCIPgetNLPs(SCIP* scip)
+    SCIP_Longint SCIPgetNNodeLPs(SCIP* scip)
+    int SCIPgetMaxDepth(SCIP* scip)
 
     # Parameter Functions
     SCIP_RETCODE SCIPsetBoolParam(SCIP* scip, char* name, SCIP_Bool value)
@@ -1304,6 +1318,8 @@ cdef extern from "scip/paramset.h":
     char* SCIPparamGetString(SCIP_PARAM* param)
 
 cdef extern from "scip/pub_lp.h":
+    SCIP_Real SCIPlpGetObjNorm(SCIP_LP* lp)
+    void SCIPlpRecalculateObjSqrNorm(SCIP_SET* set, SCIP_LP* lp)
     # Row Methods
     SCIP_Real SCIProwGetLhs(SCIP_ROW* row)
     SCIP_Real SCIProwGetRhs(SCIP_ROW* row)
@@ -1316,6 +1332,16 @@ cdef extern from "scip/pub_lp.h":
     int SCIProwGetNLPNonz(SCIP_ROW* row)
     SCIP_COL** SCIProwGetCols(SCIP_ROW* row)
     SCIP_Real* SCIProwGetVals(SCIP_ROW* row)
+    SCIP_Real SCIProwGetNorm(SCIP_ROW* row)   
+    SCIP_Real SCIProwGetDualsol(SCIP_ROW* row) 
+    int SCIProwGetAge(SCIP_ROW* row)
+    SCIP_Real SCIProwGetLPActivity(SCIP_ROW* row,
+                                   SCIP_SET* set,
+                                   SCIP_STAT* stat,
+                                   SCIP_LP* lp)
+    SCIP_Real SCIProwGetObjParallelism(SCIP_ROW* row,
+                                       SCIP_SET* set,
+                                       SCIP_LP* lp)
     # Column Methods
     int SCIPcolGetLPPos(SCIP_COL* col)
     SCIP_BASESTAT SCIPcolGetBasisStatus(SCIP_COL* col)
@@ -1522,7 +1548,7 @@ cdef extern from "scip/struct_stat.h":
         SCIP_CLOCK * 	reoptupdatetime
         SCIP_HISTORY * 	glbhistory
         SCIP_HISTORY * 	glbhistorycrun
-        # SCIP_VAR * 	lastbranchvar
+        SCIP_VAR * 	lastbranchvar
         # SCIP_VISUAL * 	visual
         # SCIP_HEUR * 	firstprimalheur
         SCIP_STATUS 	status
