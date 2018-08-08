@@ -3225,7 +3225,7 @@ cdef class Model:
 
         return {
             'global': {
-                'lp_obj': SCIPgetLPObjval(self._scip)
+                'lp_obj': SCIPgetLPObjval(self._scip),
                 # 'nnodes': SCIPgetNNodes(scip),
                 # 'ninternalnodes': scip.stat.ninternalnodes,
                 # 'ncreatednodes': scip.stat.ncreatednodes,
@@ -3234,7 +3234,7 @@ cdef class Model:
                 #
                 # 'maxdepth': SCIPgetMaxDepth(scip),
                 #
-                # 'nlps': SCIPgetNLPs(scip),
+                'nlps': SCIPgetNLPs(scip)
                 # 'ninitlps': scip.stat.ninitlps,
                 # 'ndivinglps': scip.stat.ndivinglps,
                 # 'nnodelps': SCIPgetNNodeLPs(scip),
