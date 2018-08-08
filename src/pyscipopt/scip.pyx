@@ -3234,7 +3234,7 @@ cdef class Model:
                 #
                 # 'maxdepth': SCIPgetMaxDepth(scip),
                 #
-                # 'nlps': SCIPgetNLPs(scip),
+                'nlps': SCIPgetNLPs(scip),
                 # 'ninitlps': scip.stat.ninitlps,
                 # 'ndivinglps': scip.stat.ndivinglps,
                 # 'nnodelps': SCIPgetNNodeLPs(scip),
