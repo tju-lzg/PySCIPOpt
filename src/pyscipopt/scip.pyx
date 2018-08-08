@@ -3225,18 +3225,19 @@ cdef class Model:
 
         return {
             'global': {
-                'nnodes': SCIPgetNNodes(scip),
-                'ninternalnodes': scip.stat.ninternalnodes,
-                'ncreatednodes': scip.stat.ncreatednodes,
-                'nfeasleaves': scip.stat.nfeasleaves,
-                'ninfeasleaves': scip.stat.ninfeasleaves,
-
-                'maxdepth': SCIPgetMaxDepth(scip),
-
-                'nlps': SCIPgetNLPs(scip),
-                'ninitlps': scip.stat.ninitlps,
-                'ndivinglps': scip.stat.ndivinglps,
-                'nnodelps': SCIPgetNNodeLPs(scip),
+                'lp_obj': SCIPgetLPObjval(self._scip)
+                # 'nnodes': SCIPgetNNodes(scip),
+                # 'ninternalnodes': scip.stat.ninternalnodes,
+                # 'ncreatednodes': scip.stat.ncreatednodes,
+                # 'nfeasleaves': scip.stat.nfeasleaves,
+                # 'ninfeasleaves': scip.stat.ninfeasleaves,
+                #
+                # 'maxdepth': SCIPgetMaxDepth(scip),
+                #
+                # 'nlps': SCIPgetNLPs(scip),
+                # 'ninitlps': scip.stat.ninitlps,
+                # 'ndivinglps': scip.stat.ndivinglps,
+                # 'nnodelps': SCIPgetNNodeLPs(scip),
              },
             'node': {
                 'col': {
