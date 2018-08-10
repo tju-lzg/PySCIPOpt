@@ -243,6 +243,8 @@ cdef extern from "scip/scip.h":   # SCIP internal types
     ctypedef struct SCIP:
         SCIP_SET* set
         SCIP_STAT* stat
+        SCIP_PROB * origprob
+        SCIP_PROB * transprob
         SCIP_LP* lp
 
     ctypedef struct SCIP_VAR:
@@ -994,6 +996,9 @@ cdef extern from "scip/scip.h":   # SCIP internal types
 
     BMS_BLKMEM* SCIPblkmem(SCIP* scip)
 
+    # other
+    void SCIPstatReset(SCIP_STAT* stat, SCIP_SET* set, SCIP_PROB* transprob, SCIP_PROB* origprob)
+
 cdef extern from "scip/tree.h":
     int SCIPnodeGetNAddedConss(SCIP_NODE* node)
 
@@ -1332,8 +1337,8 @@ cdef extern from "scip/pub_lp.h":
     int SCIProwGetNLPNonz(SCIP_ROW* row)
     SCIP_COL** SCIProwGetCols(SCIP_ROW* row)
     SCIP_Real* SCIProwGetVals(SCIP_ROW* row)
-    SCIP_Real SCIProwGetNorm(SCIP_ROW* row)   
-    SCIP_Real SCIProwGetDualsol(SCIP_ROW* row) 
+    SCIP_Real SCIProwGetNorm(SCIP_ROW* row)
+    SCIP_Real SCIProwGetDualsol(SCIP_ROW* row)
     int SCIProwGetAge(SCIP_ROW* row)
     SCIP_Real SCIProwGetLPActivity(SCIP_ROW* row,
                                    SCIP_SET* set,
@@ -1645,3 +1650,9 @@ cdef extern from "scip/struct_stat.h":
         SCIP_Bool 	performpresol
         SCIP_Bool 	branchedunbdvar
         SCIP_Bool 	disableenforelaxmsg
+
+cdef extern from "scip/struct_set.h":
+    ctypedef struct SCIP_SET
+
+cdef extern from "scip/type_prob.h":
+    ctypedef struct SCIP_PROB
