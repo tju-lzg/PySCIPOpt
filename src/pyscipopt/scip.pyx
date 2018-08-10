@@ -3362,9 +3362,9 @@ cdef class Model:
         stat.mincopytime,
         stat.firstlptime,
         stat.lastbranchvalue,
-        stat.primaldualintegral,
+        # stat.primaldualintegral,
         stat.previousgap,
-        stat.previntegralevaltime,
+        # stat.previntegralevaltime,
         stat.lastprimalbound,
         stat.lastdualbound,
         stat.lastlowerbound,
@@ -3377,34 +3377,34 @@ cdef class Model:
         ])
 
         # Clocks
-        def unpack_clock(clock):
-            return  (clock['lasttime'],
-                    # clock['nruns'],
-                    clock['clocktype'],
-                    clock['usedefault'],
-                    clock['enabled'])
-        global_data.extend([
-        *unpack_clock(stat.solvingtime[0]),
-        *unpack_clock(stat.solvingtimeoverall[0]),
-        *unpack_clock(stat.presolvingtime[0]),
-        *unpack_clock(stat.presolvingtimeoverall[0]),
-        *unpack_clock(stat.primallptime[0]),
-        *unpack_clock(stat.duallptime[0]),
-        *unpack_clock(stat.lexduallptime[0]),
-        *unpack_clock(stat.barrierlptime[0]),
-        *unpack_clock(stat.divinglptime[0]),
-        *unpack_clock(stat.strongbranchtime[0]),
-        *unpack_clock(stat.conflictlptime[0]),
-        *unpack_clock(stat.lpsoltime[0]),
-        *unpack_clock(stat.relaxsoltime[0]),
-        *unpack_clock(stat.pseudosoltime[0]),
-        *unpack_clock(stat.sbsoltime[0]),
-        *unpack_clock(stat.nodeactivationtime[0]),
-        *unpack_clock(stat.nlpsoltime[0]),
-        *unpack_clock(stat.copyclock[0]),
-        *unpack_clock(stat.strongpropclock[0]),
-        *unpack_clock(stat.reoptupdatetime[0])
-        ])
+        # def unpack_clock(clock):
+        #     return  (#clock['lasttime'],
+        #             # clock['nruns'],
+        #             clock['clocktype'],
+        #             clock['usedefault'],
+        #             clock['enabled'])
+        # global_data.extend([
+        # *unpack_clock(stat.solvingtime[0]),
+        # *unpack_clock(stat.solvingtimeoverall[0]),
+        # *unpack_clock(stat.presolvingtime[0]),
+        # *unpack_clock(stat.presolvingtimeoverall[0]),
+        # *unpack_clock(stat.primallptime[0]),
+        # *unpack_clock(stat.duallptime[0]),
+        # *unpack_clock(stat.lexduallptime[0]),
+        # *unpack_clock(stat.barrierlptime[0]),
+        # *unpack_clock(stat.divinglptime[0]),
+        # *unpack_clock(stat.strongbranchtime[0]),
+        # *unpack_clock(stat.conflictlptime[0]),
+        # *unpack_clock(stat.lpsoltime[0]),
+        # *unpack_clock(stat.relaxsoltime[0]),
+        # *unpack_clock(stat.pseudosoltime[0]),
+        # *unpack_clock(stat.sbsoltime[0]),
+        # *unpack_clock(stat.nodeactivationtime[0]),
+        # *unpack_clock(stat.nlpsoltime[0]),
+        # *unpack_clock(stat.copyclock[0]),
+        # *unpack_clock(stat.strongpropclock[0]),
+        # *unpack_clock(stat.reoptupdatetime[0])
+        # ])
 
         # Flags, ints and bools
         global_data.extend([
@@ -3479,19 +3479,19 @@ cdef class Model:
         stat.npresolupgdconss,
         stat.npresolchgcoefs,
         stat.npresolchgsides,
-        stat.lastnpresolfixedvars,
-        stat.lastnpresolaggrvars,
-        stat.lastnpresolchgvartypes,
-        stat.lastnpresolchgbds,
-        stat.lastnpresoladdholes,
-        stat.lastnpresoldelconss,
-        stat.lastnpresoladdconss,
-        stat.lastnpresolupgdconss,
-        stat.lastnpresolchgcoefs,
-        stat.lastnpresolchgsides,
+        # stat.lastnpresolfixedvars,
+        # stat.lastnpresolaggrvars,
+        # stat.lastnpresolchgvartypes,
+        # stat.lastnpresolchgbds,
+        # stat.lastnpresoladdholes,
+        # stat.lastnpresoldelconss,
+        # stat.lastnpresoladdconss,
+        # stat.lastnpresolupgdconss,
+        # stat.lastnpresolchgcoefs,
+        # stat.lastnpresolchgsides,
         stat.solindex,
         stat.nrunsbeforefirst,
-        stat.firstprimaldepth,
+        # stat.firstprimaldepth,
         stat.ncopies,
         # stat.nreoptruns,
         stat.nclockskipsleft,
@@ -3506,29 +3506,30 @@ cdef class Model:
         ])
         global_data = np.array(global_data, dtype=np.float32)
 
-        # Variable data
-        def parse_history(variable):
-            return [*variable['pscostcount'], *variable['pscostweightedmean'],
-                    *variable['pscostvariance'], *variable['vsids'],
-                    *variable['conflengthsum'], *variable['inferencesum'],
-                    *variable['cutoffsum'], *variable['nactiveconflicts'],
-                    *variable['nbranchings'], *variable['branchdepthsum']]
-
-        variable_data = []
-        for variable in range(nvars):
-            variable_data.append(parse_history(stat.glbhistory[variable]) +
-                                 parse_history(stat.glbhistorycrun[variable]))
-        variable_data = np.array(variable_data, dtype=np.float32)
+        # # Variable data
+        # def parse_history(variable):
+        #     return [*variable['pscostcount'], *variable['pscostweightedmean'],
+        #             *variable['pscostvariance'], *variable['vsids'],
+        #             *variable['conflengthsum'], *variable['inferencesum'],
+        #             *variable['cutoffsum'], *variable['nactiveconflicts'],
+        #             *variable['nbranchings'], *variable['branchdepthsum']]
+        #
+        # variable_data = []
+        # for variable in range(nvars):
+        #     variable_data.append(parse_history(stat.glbhistory[variable]) +
+        #                          parse_history(stat.glbhistorycrun[variable]))
+        # variable_data = np.array(variable_data, dtype=np.float32)
 
         def sanitize(array):
             array[np.isnan(array)] = 0.
             array[array > 1e4] = 1e4
             array[array < -1e4] = -1e4
             return array
-        return sanitize(variable_data), sanitize(global_data)
+        return sanitize(global_data)
 
     def reset_stat(self):
-        SCIPstatReset(self._scip.stat, self._scip.set, self._scip.transprob, self._scip.origprob)
+        PY_SCIP_CALL(SCIPstatReset(self._scip.stat, self._scip.set,
+                                   self._scip.transprob, self._scip.origprob))
 
 # debugging memory management
 def is_memory_freed():
