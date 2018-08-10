@@ -3527,6 +3527,9 @@ cdef class Model:
             return array
         return sanitize(variable_data), sanitize(global_data)
 
+    def reset_history(self):
+        SCIPstatReset(self._scip.stat, self._scip.set, self._scip.origprob, self._scip.transprob)
+
 # debugging memory management
 def is_memory_freed():
     return BMSgetMemoryUsed() == 0
