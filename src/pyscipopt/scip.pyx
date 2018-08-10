@@ -509,26 +509,29 @@ cdef class Variable(Expr):
         Extract and return (candidate) variable representation as dictionary.
         -------
         """
-        cdef int var_idx = SCIPvarGetIndex(self.var)
+        cdef int var_idx = SCIPvarGetIndex(self.var)  # use .getCol().getLPPos()
         cdef SCIP_Real obj_v = SCIPvarGetObj(self.var)
         cdef SCIP_Real lpsol_v = SCIPvarGetLPSol(self.var)
         
-        # check
-        cdef SCIP_HISTORY * history = self.var.history
-        # SCIPhistoryReset?
+        cdef SCIP_HISTORY* historycrun = self.var.historycrun
+        cdef SCIP_Real pcweightedmean = historycrun.pscostweightedmean[2]
+        cdef SCIP_Real pccount = historycrun.pscostcount[2]
+        
+        cdef SCIP_Longint nbranchdown = SCIPvarGetNBranchingsCurrentRun(self.var, SCIP_BRANCHDIR_DOWNWARDS)
+        cdef SCIP_Longint nbranchup = SCIPvarGetNBranchingsCurrentRun(self.var, SCIP_BRANCHDIR_UPWARDS)
         
         #def branch_history(variable):
         #    return [variable['vsids'], variable['inferencesum'],
         #           variable['nbranchings'], variable['branchdepthsum']]
         # branch_hist = branch_history(history[var_idx])
-        branch_hist = [history.nbranchings[var_idx], history.branchdepthsum[var_idx]]
+        branch_hist = [nbranchdown, nbranchup, pcweightedmean, pccount]
         
         return {
             'var_idx': var_idx,
             'obj_v': obj_v,
             'lpsol_v': lpsol_v,
             'branch_hist': branch_hist
-        }    
+        }  
         
         
 cdef class Constraint:
@@ -3176,7 +3179,41 @@ cdef class Model:
             'node_lb': node_lb,
             # 'branched_on': branch_info[1]
         }
-        
+
+    def getPCVarRepr(self):
+        """
+        Extract variable's info to learn PC decision.
+        SCIPvarGetNBranchingsCurrentRun is the same as SCIPgetVarPseudocostCountCurrentRun.
+        """
+        # get candidate variables (as in getLPBranchCands)
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
+        cdef int nlpcands
+        cdef int npriolpcands
+        cdef int nfracimplvars
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
+        # variables = [lpcands[i] for i in range(nlpcands)]
+                
+        cands_dict = {}
+        for i in range(nlpcands):
+            cands_dict[i] = [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])),
+                             lpcandssol[i],
+                             lpcandsfrac[i],  
+                             SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], SCIPvarGetLPSol(lpcands[i])), 
+                             SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
+                             SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS), 
+                             SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
+                             SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+                             ]
+
+                # SCIPvarGetObj()
+                # SCIPgetVarPseudocostVariance()
+                # SCIPcalculatePscostConfidenceBound()
+                # SCIPsignificantVarPscostDifference()
+                # SCIPvarGetAvgBranchdepthCurrentRun()
+                
+        return cands_dict 
 
     def executeBranchRule(self, str name, allowaddcons):
         cdef SCIP_BRANCHRULE*  branchrule

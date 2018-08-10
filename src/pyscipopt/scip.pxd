@@ -245,7 +245,7 @@ cdef extern from "scip/scip.h":
         SCIP_STAT* stat
 
     ctypedef struct SCIP_VAR:
-        SCIP_HISTORY*  history
+        SCIP_HISTORY*  historycrun
 
     ctypedef struct SCIP_CONS:
         pass
@@ -533,7 +533,11 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPvarGetObj(SCIP_VAR* var)
     SCIP_Real SCIPvarGetLPSol(SCIP_VAR* var)
     int SCIPvarGetIndex(SCIP_VAR* var)
-
+    SCIP_Longint SCIPvarGetNBranchingsCurrentRun(SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetVarPseudocostScoreCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_Real solval)
+    SCIP_Real SCIPgetVarPseudocostCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetVarPseudocostCountCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    
     # SCIP_DOMCHG Methods
     int SCIPdomchgGetNBoundchgs(SCIP_DOMCHG* domchg)
     SCIP_BOUNDCHG* SCIPdomchgGetBoundchg(SCIP_DOMCHG* domchg, int pos)
@@ -1363,3 +1367,4 @@ cdef extern from "scip/struct_stat.h":
     ctypedef struct SCIP_STAT:
         SCIP_HISTORY * 	glbhistory
         SCIP_HISTORY * 	glbhistorycrun
+        
