@@ -537,6 +537,15 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPgetVarPseudocostScoreCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_Real solval)
     SCIP_Real SCIPgetVarPseudocostCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPgetVarPseudocostCountCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPvarGetObjLP(SCIP_VAR* var)
+    SCIP_Real SCIPgetVarPseudocostVariance(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun)
+    SCIP_Real SCIPcalculatePscostConfidenceBound(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun, SCIP_CONFIDENCELEVEL clevel)
+    SCIP_Real SCIPvarGetAvgBranchdepthCurrentRun(SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    int SCIPvarGetNUses(SCIP_VAR* var)
+    SCIP_Bool SCIPvarIsActive(SCIP_VAR* var)
+    SCIP_Real SCIPvarGetBranchFactor(SCIP_VAR* var)
+    int SCIPvarGetLastBdchgDepth(SCIP_VAR* var)
+    
     
     # SCIP_DOMCHG Methods
     int SCIPdomchgGetNBoundchgs(SCIP_DOMCHG* domchg)
@@ -1367,4 +1376,13 @@ cdef extern from "scip/struct_stat.h":
     ctypedef struct SCIP_STAT:
         SCIP_HISTORY * 	glbhistory
         SCIP_HISTORY * 	glbhistorycrun
+
+cdef extern from "scip/type_misc.h":
+    ctypedef enum SCIP_CONFIDENCELEVEL:
+        SCIP_CONFIDENCELEVEL_MIN        = 0
+        SCIP_CONFIDENCELEVEL_LOW        = 1
+        SCIP_CONFIDENCELEVEL_MEDIUM     = 2
+        SCIP_CONFIDENCELEVEL_HIGH       = 3
+        SCIP_CONFIDENCELEVEL_MAX        = 4
+    
         
