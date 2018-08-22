@@ -3067,50 +3067,58 @@ cdef class Model:
             }
         }
 
-    def getState(self):
+    def getState(self, prev_state = None):
         cdef SCIP* scip = self._scip
         cdef int i, j, k, col_i
         cdef SCIP_Real sim, prod
+
+        update = prev_state is not None
+
 
         # COLUMNS
         cdef SCIP_COL** cols = SCIPgetLPCols(scip)
         cdef int ncols = SCIPgetNLPCols(scip)
 
-        col_vals = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+        if not update:
+            col_vals = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+            col_types = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
+            col_coefs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+            col_ubs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+            col_lbs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+            col_basestats = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
+            col_redcosts = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+            col_ages = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
+        else:
+            col_vals = prev_state['node']['col']['vals']
+            col_types = prev_state['node']['col']['types']
+            col_coefs = prev_state['node']['col']['coefs']
+            col_ubs = prev_state['node']['col']['ubs']
+            col_lbs = prev_state['node']['col']['lbs']
+            col_basestats = prev_state['node']['col']['basestats']
+            col_redcosts = prev_state['node']['col']['redcosts']
+            col_ages = prev_state['node']['col']['ages']
+
         cdef SCIP_Real [:] col_vals_view = col_vals
-
-        col_types = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
         cdef int [:] col_types_view = col_types
-
-        col_coefs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
         cdef SCIP_Real [:] col_coefs_view = col_coefs
-
-        col_ubs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
         cdef SCIP_Real [:] col_ubs_view = col_ubs
-
-        col_lbs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
         cdef SCIP_Real [:] col_lbs_view = col_lbs
-
-        col_basestats = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
         cdef int [:] col_basestats_view = col_basestats
-
-        col_redcosts = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
         cdef SCIP_Real [:] col_redcosts_view = col_redcosts
-
-        col_ages = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
         cdef int [:] col_ages_view = col_ages
 
         for i in range(ncols):
             col_i = SCIPcolGetLPPos(cols[i])
 
-            # Variable type
-            col_types_view[col_i] = SCIPvarGetType(SCIPcolGetVar(cols[i]))
+            if not update:
+                # Variable type
+                col_types_view[col_i] = SCIPvarGetType(SCIPcolGetVar(cols[i]))
+
+                # Objective coefficient
+                col_coefs_view[col_i] = SCIPcolGetObj(cols[i])
 
             # Solution value
             col_vals[col_i] = SCIPcolGetPrimsol(cols[i])
-
-            # Objective coefficient
-            col_coefs_view[col_i] = SCIPcolGetObj(cols[i])
 
             # Lower bound
             col_lbs_view[col_i] = SCIPcolGetLb(cols[i])
@@ -3131,54 +3139,74 @@ cdef class Model:
             # Age
             col_ages_view[i] = cols[i].age
 
+
         # ROWS
         cdef int nrows = SCIPgetNLPRows(scip)
         cdef SCIP_ROW** rows = SCIPgetLPRows(scip)
 
-        row_nnzrs = np.empty(shape=(nrows, ), dtype=np.dtype('int32'))
-        cdef int [:] row_nnzrs_view = row_nnzrs
+        if not update:
+            row_lhss = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+            row_rhss = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+            row_nnzrs = np.empty(shape=(nrows, ), dtype=np.dtype('int32'))
+            row_dualsols = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+            row_basestats = np.empty(shape=(nrows, ), dtype=np.dtype('int32'))
+            row_ages = np.empty(shape=(nrows, ), dtype=np.dtype('int32'))
+            row_activities = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+            row_objcossims = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+            row_norms = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+        else:
+            row_lhss = prev_state['node']['row']['lhss']
+            row_rhss = prev_state['node']['row']['rhss']
+            row_nnzrs = prev_state['node']['row']['nnzrs']
+            row_dualsols = prev_state['node']['row']['dualsols']
+            row_basestats = prev_state['node']['row']['basestats']
+            row_ages = prev_state['node']['row']['ages']
+            row_activities = prev_state['node']['row']['activities']
+            row_objcossims = prev_state['node']['row']['objcossims']
+            row_norms = prev_state['node']['row']['norms']
 
-        row_lhss = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
         cdef SCIP_Real [:] row_lhss_view = row_lhss
-
-        row_rhss = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
         cdef SCIP_Real [:] row_rhss_view = row_rhss
-
-        row_dualsols = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
+        cdef int [:] row_nnzrs_view = row_nnzrs
         cdef SCIP_Real [:] row_dualsols_view = row_dualsols
-
-        row_basestats = np.empty(shape=(nrows, ), dtype=np.dtype('int32'))
         cdef int [:] row_basestats_view = row_basestats
-
-        row_ages = np.empty(shape=(nrows, ), dtype=np.dtype('int32'))
         cdef int [:] row_ages_view = row_ages
-
-        row_activities = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
         cdef SCIP_Real [:] row_activities_view = row_activities
-
-        row_objcossims = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
         cdef SCIP_Real [:] row_objcossims_view = row_objcossims
+        cdef SCIP_Real [:] row_norms_view = row_norms
 
         cdef int nnzrs = 0
         for i in range(nrows):
 
-            # number of coefficients
-            row_nnzrs_view[i] = SCIProwGetNLPNonz(rows[i])
-            nnzrs += row_nnzrs_view[i]
+            # assert rows can not be altered between updates
+            assert not (SCIProwIsLocal(rows[i]) or SCIProwIsModifiable(rows[i]) or SCIProwIsRemovable(rows[i]))
 
-            # left-hand-side
-            row_lhss_view[i] = SCIProwGetLhs(rows[i])
-            if SCIPisInfinity(scip, REALABS(row_lhss_view[i])):
-                row_lhss_view[i] = NAN
-            else:
-                row_lhss_view[i] -= SCIProwGetConstant(rows[i])
+            if not update:
+                # number of coefficients
+                row_nnzrs_view[i] = SCIProwGetNLPNonz(rows[i])
+                nnzrs += row_nnzrs_view[i]
 
-            # right-hand-side
-            row_rhss_view[i] = SCIProwGetRhs(rows[i])
-            if SCIPisInfinity(scip, REALABS(row_rhss_view[i])):
-                row_rhss_view[i] = NAN
-            else:
-                row_rhss_view[i] -= SCIProwGetConstant(rows[i])
+                # left-hand-side
+                row_lhss_view[i] = SCIProwGetLhs(rows[i])
+                if SCIPisInfinity(scip, REALABS(row_lhss_view[i])):
+                    row_lhss_view[i] = NAN
+                else:
+                    row_lhss_view[i] -= SCIProwGetConstant(rows[i])
+
+                # right-hand-side
+                row_rhss_view[i] = SCIProwGetRhs(rows[i])
+                if SCIPisInfinity(scip, REALABS(row_rhss_view[i])):
+                    row_rhss_view[i] = NAN
+                else:
+                    row_rhss_view[i] -= SCIProwGetConstant(rows[i])
+
+                # Objective cosine similarity - inspired by SCIProwGetObjParallelism()
+                SCIPlpRecalculateObjSqrNorm(scip.set, scip.lp)
+                prod = rows[i].sqrnorm * scip.lp.objsqrnorm
+                row_objcossims_view[i] = rows[i].objprod / SQRT(prod) if SCIPisPositive(scip, prod) else 0.0
+
+                # L2 norm
+                row_norms_view[i] = SCIProwGetNorm(rows[i])
 
             # Dual solution
             row_dualsols_view[i] = SCIProwGetDualsol(rows[i])
@@ -3192,35 +3220,37 @@ cdef class Model:
             # Activity
             row_activities_view[i] = SCIProwGetLPActivity(rows[i], scip.set, scip.stat, scip.lp)
 
-            # Objective cosine similarity
-            # inspired by SCIProwGetObjParallelism()
 
-            SCIPlpRecalculateObjSqrNorm(scip.set, scip.lp)
+        # Row coefficients
+        if not update:
+            coef_colidxs = np.empty(shape=(nnzrs, ), dtype=np.dtype('int32'))
+            coef_rowidxs = np.empty(shape=(nnzrs, ), dtype=np.dtype('int32'))
+            coef_vals = np.empty(shape=(nnzrs, ), dtype=np.dtype('float'))
+        else:
+            coef_colidxs = prev_state['node']['nzrcoef']['colidxs']
+            coef_rowidxs = prev_state['node']['nzrcoef']['rowidxs']
+            coef_vals = prev_state['node']['nzrcoef']['vals']
 
-            prod = rows[i].sqrnorm * scip.lp.objsqrnorm
-            sim = rows[i].objprod / SQRT(prod) if SCIPisPositive(scip, prod) else 0.0
+        cdef int [:] coef_colidxs_view = coef_colidxs
+        cdef int [:] coef_rowidxs_view = coef_rowidxs
+        cdef SCIP_Real [:] coef_vals_view = coef_vals
 
-            row_objcossims_view[i] = sim
-
-        row_coefidxs = np.empty(shape=(nnzrs, ), dtype=np.dtype('int32'))
-        cdef int [:] row_coefidxs_view = row_coefidxs
-
-        row_coefvals = np.empty(shape=(nnzrs, ), dtype=np.dtype('float'))
-        cdef SCIP_Real [:] row_coefvals_view = row_coefvals
-
-        j = 0
         cdef SCIP_COL ** row_cols
         cdef SCIP_Real * row_vals
-        for i in range(nrows):
 
-            # coefficient indexes and values
-            row_cols = SCIProwGetCols(rows[i])
-            row_vals = SCIProwGetVals(rows[i])
-            for k in range(row_nnzrs_view[i]):
-                row_coefidxs_view[j+k] = SCIPcolGetLPPos(row_cols[k])
-                row_coefvals_view[j+k] = row_vals[k]
+        if not update:
+            j = 0
+            for i in range(nrows):
 
-            j += row_nnzrs_view[i]
+                # coefficient indexes and values
+                row_cols = SCIProwGetCols(rows[i])
+                row_vals = SCIProwGetVals(rows[i])
+                for k in range(row_nnzrs_view[i]):
+                    coef_colidxs_view[j+k] = SCIPcolGetLPPos(row_cols[k])
+                    coef_rowidxs_view[j+k] = i
+                    coef_vals_view[j+k] = row_vals[k]
+
+                j += row_nnzrs_view[i]
 
 
         return {
@@ -3259,10 +3289,12 @@ cdef class Model:
                     'ages': row_ages,
                     'activities': row_activities,
                     'objcossims': row_objcossims,
+                    'norms': row_norms,
                 },
                 'nzrcoef': {
-                    'colidxs': row_coefidxs,
-                    'vals': row_coefvals,
+                    'colidxs': coef_colidxs,
+                    'rowidxs': coef_rowidxs,
+                    'vals': coef_vals,
                 },
             },
         }

@@ -1347,6 +1347,10 @@ cdef extern from "scip/pub_lp.h":
     SCIP_Real SCIProwGetObjParallelism(SCIP_ROW* row,
                                        SCIP_SET* set,
                                        SCIP_LP* lp)
+    SCIP_Bool SCIProwIsLocal(SCIP_ROW * row)
+    SCIP_Bool SCIProwIsModifiable(SCIP_ROW * row)
+    SCIP_Bool SCIProwIsRemovable(SCIP_ROW * row)
+
     # Column Methods
     int SCIPcolGetLPPos(SCIP_COL* col)
     SCIP_BASESTAT SCIPcolGetBasisStatus(SCIP_COL* col)
