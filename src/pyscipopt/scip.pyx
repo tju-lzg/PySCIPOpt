@@ -3183,47 +3183,67 @@ cdef class Model:
     def getPCRepr(self):
         """
         Extract variable's info (and pc scores) to learn PC decision.
-        Note: SCIPvarGetNBranchingsCurrentRun is the same as SCIPgetVarPseudocostCountCurrentRun.
         """
+        # SCIPvarGetNBranchingsCurrentRun() == SCIPgetVarPseudocostCountCurrentRun()
+        # SCIPvarGetPseudocost(lpcands[i], stat, -1) == SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) == LP gain
+                
         # get candidate variables (as in getLPBranchCands)
         cdef SCIP_VAR** lpcands
         cdef SCIP_Real* lpcandssol
         cdef SCIP_Real* lpcandsfrac
+        cdef SCIP_STAT* stat = self._scip.stat
         cdef int nlpcands
         cdef int npriolpcands
         cdef int nfracimplvars
         PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
         
-        cands_pc_scores = []
-        cands_branch_factors = []           
+        cands_pc_scores = []          
         cands_dict = {}
         for i in range(nlpcands):
             cands_pc_scores.append(SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i]))
-            cands_branch_factors.append(SCIPvarGetBranchFactor(lpcands[i]))
-            cands_dict[i] = {'col_pos': SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])), 
-                             'pc_score': SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i]),
-                             'branch_factor': SCIPvarGetBranchFactor(lpcands[i]),
-                             'frac': lpcandsfrac[i],  
-                             'n_uses': SCIPvarGetNUses(lpcands[i]),
-                             'pc_up': SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS), 
-                             'pc_down': SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
-                             'pc_count_up': SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
-                             'pc_count_down': SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
+            cands_dict[i] = {'col_pos': SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])),
+                             # solution
+                             'frac': lpcandsfrac[i], 
+                             'is_active': SCIPvarIsActive(lpcands[i]),
                              'obj': SCIPvarGetObj(lpcands[i]),
-                             'obj_lp': SCIPvarGetObjLP(lpcands[i]),
+                             'obj_lp': SCIPvarGetObjLP(lpcands[i]), 
+                             'red_cost': SCIPgetVarRedcost(self._scip, lpcands[i]),
+                             'lp_sol': SCIPvarGetLPSol(lpcands[i]),
+                             'avg_sol': SCIPvarGetAvgSol(lpcands[i]),
+                             # pc
+                             'pc_score_cr': SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i]),
+                             'pc_up_cr': SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
+                             'pc_down_cr': SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
+                             'pc_count_up_cr': SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
+                             'pc_count_down_cr': SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
+                             # pc general 
                              'pc_var_up': SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1),
                              'pc_var_down': SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1),
                              'pc_conf_bound_up': SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM),
                              'pc_conf_bound_down': SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM),
+                             # branching history and stats
+                             'n_uses': SCIPvarGetNUses(lpcands[i]),  
                              'avg_depth_up': SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS),
                              'avg_depth_down': SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
-                             'is_active': SCIPvarIsActive(lpcands[i]),
-                             'last_depth': SCIPvarGetLastBdchgDepth(lpcands[i]),
-                             'red_cost': SCIPgetVarRedcost(self._scip, lpcands[i])
-                             }          
-        # SCIPsignificantVarPscostDifference(): use for reward (compares two)?
+                             'last_depth': SCIPvarGetLastBdchgDepth(lpcands[i]),                
+                             # bounds
+                             'global_lb': SCIPvarGetLbGlobal(lpcands[i]),
+                             'global_ub': SCIPvarGetUbGlobal(lpcands[i]),
+                             'local_lb': SCIPvarGetLbLocal(lpcands[i]),
+                             'local_ub': SCIPvarGetUbLocal(lpcands[i]),
+                             'n_lbs': SCIPvarGetNVlbs(lpcands[i]),
+                             'n_ubs': SCIPvarGetNVubs(lpcands[i]),
+                             # implications, cliques, conflicts, inferences
+                             'n_impl_0': SCIPvarGetNImpls(lpcands[i], 0),
+                             'n_impl_1': SCIPvarGetNImpls(lpcands[i], 1),
+                             'n_cliques_0': SCIPvarGetNCliques(lpcands[i], 0),
+                             'n_cliques_1': SCIPvarGetNCliques(lpcands[i], 1),
+                             'conflict_score': SCIPgetVarConflictScoreCurrentRun(self._scip, lpcands[i]),
+                             'inference_up': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
+                             'inference_down': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),      
+                             }
                 
-        return [Variable.create(lpcands[i]) for i in range(nlpcands)], cands_pc_scores, cands_branch_factors, cands_dict 
+        return [Variable.create(lpcands[i]) for i in range(nlpcands)], cands_pc_scores, cands_dict
 
 
     def executeBranchRule(self, str name, allowaddcons):

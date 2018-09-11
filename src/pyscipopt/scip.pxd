@@ -545,7 +545,15 @@ cdef extern from "scip/scip.h":
     SCIP_Bool SCIPvarIsActive(SCIP_VAR* var)
     SCIP_Real SCIPvarGetBranchFactor(SCIP_VAR* var)
     int SCIPvarGetLastBdchgDepth(SCIP_VAR* var)
-    
+    int SCIPvarGetNVlbs(SCIP_VAR* var)
+    int SCIPvarGetNVubs(SCIP_VAR* var)
+    int SCIPvarGetNImpls(SCIP_VAR* var, SCIP_Bool varfixing)
+    int SCIPvarGetNCliques(SCIP_VAR* var, SCIP_Bool varfixing)
+    SCIP_Real SCIPvarGetAvgSol(SCIP_VAR* var)
+    SCIP_Real SCIPgetVarConflictScoreCurrentRun(SCIP* scip, SCIP_VAR* var)
+    SCIP_Real SCIPgetVarAvgInferencesCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPvarGetPseudocost(SCIP_VAR* var, SCIP_STAT* stat, SCIP_Real solvaldelta)
+    SCIP_Real SCIPvarGetPseudocostVariance(SCIP_VAR* var, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun)
     
     # SCIP_DOMCHG Methods
     int SCIPdomchgGetNBoundchgs(SCIP_DOMCHG* domchg)
