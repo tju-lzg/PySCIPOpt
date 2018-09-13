@@ -3243,7 +3243,7 @@ cdef class Model:
                              'inference_down': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),      
                              }
                 
-        return [Variable.create(lpcands[i]) for i in range(nlpcands)], cands_pc_scores, cands_dict
+        return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)], cands_pc_scores, cands_dict
 
 
     def executeBranchRule(self, str name, allowaddcons):
