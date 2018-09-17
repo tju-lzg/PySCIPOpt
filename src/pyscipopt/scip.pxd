@@ -934,6 +934,8 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPprintStatistics(SCIP* scip, FILE* outfile)
     SCIP_Longint SCIPgetNNodes(SCIP* scip)
     SCIP_Longint SCIPgetNLPs(SCIP* scip)
+    int SCIPgetMaxDepth(SCIP* scip)
+    SCIP_Longint SCIPgetNNodeLPs(SCIP* scip)
 
     # Parameter Functions
     SCIP_RETCODE SCIPsetBoolParam(SCIP* scip, char* name, SCIP_Bool value)
@@ -1384,8 +1386,31 @@ cdef extern from "scip/struct_stat.h":
     ctypedef struct SCIP_STAT:
         SCIP_HISTORY * 	glbhistory
         SCIP_HISTORY * 	glbhistorycrun
+        # SCIP_REGRESSION * scipregression
+        SCIP_Longint    ninternalnodes
+        SCIP_Longint 	ncreatednodesrun
+        SCIP_Longint 	nobjleaves
+        SCIP_Longint 	nfeasleaves
+        SCIP_Longint 	ninfeasleaves
+        int 	plungedepth
+        SCIP_Longint 	nnodelpiterations
+        SCIP_Longint 	nlpiterations
+        SCIP_Longint 	nrootlpiterations
+        SCIP_Longint 	ninitlps
+        SCIP_Longint 	ninitlpiterations
+        SCIP_Longint 	ndivinglps
+        SCIP_Longint 	ndivinglpiterations
+        SCIP_Real 	primaldualintegral
+        int 	firstprimaldepth
+        SCIP_Longint 	nnodesbeforefirst
+        SCIP_Longint 	nlpsolsfound
+        SCIP_Longint 	nlpbestsolsfound
+        int 	nactiveconss
 
 cdef extern from "scip/type_misc.h":
+    # ctypedef struct SCIP_REGRESSION:
+    #     SCIP_REGRESSION * scipregression
+    
     ctypedef enum SCIP_CONFIDENCELEVEL:
         SCIP_CONFIDENCELEVEL_MIN        = 0
         SCIP_CONFIDENCELEVEL_LOW        = 1

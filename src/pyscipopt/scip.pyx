@@ -3186,6 +3186,11 @@ cdef class Model:
         """
         # SCIPvarGetNBranchingsCurrentRun() == SCIPgetVarPseudocostCountCurrentRun()
         # SCIPvarGetPseudocost(lpcands[i], stat, -1) == SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) == LP gain
+        
+        # todo: reset stat?
+        
+        # todo: compute participation in active constraints / total presence in constraints
+        # todo: add time it was in candidate set already (w.r.t. different branches?)    
                 
         # get candidate variables (as in getLPBranchCands)
         cdef SCIP_VAR** lpcands
@@ -3242,8 +3247,52 @@ cdef class Model:
                              'inference_up': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
                              'inference_down': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),      
                              }
+        # todo: add dives/jumps, objectives on open list, tree profile
+        mip_info = {# nodes and depth counters
+                    'nnodes': SCIPgetNNodes(self._scip),
+                    'ninternalnodes': self._scip.stat.ninternalnodes,
+                    'ncreatednodes': self._scip.stat.ncreatednodesrun,
+                    'nobjleaves': self._scip.stat.nobjleaves,
+                    'nfeasleaves': self._scip.stat.nfeasleaves,
+                    'ninfeasleaves': self._scip.stat.ninfeasleaves,
+                    'maxdepth': SCIPgetMaxDepth(self._scip),
+                    'plungedepth': self._scip.stat.plungedepth,  # maybe node_info? 
+                    # lp iterations counters
+                    'nnodelps': SCIPgetNNodeLPs(self._scip),
+                    # 'nnodelpiter': self._scip.stat.nnodelpiterations,
+                    # 'nlps': SCIPgetNLPs(self._scip),
+                    # 'nlpiter': self._scip.stat.nlpiterations,
+                    # 'nlprootiter': self._scip.stat.nrootlpiterations,
+                    # 'ninitlps': self._scip.stat.ninitlps,
+                    # 'ninitlpiter': self._scip.stat.ninitlpiterations,
+                    # 'ndivinglps': self._scip.stat.ndivinglps,
+                    # 'ndivinglpiter': self._scip.stat.ndivinglpiterations,
+                    # bounds, solutions and gap
+                    'gap': SCIPgetGap(self._scip),
+                    'primal_bound': SCIPgetPrimalbound(self._scip),
+                    'dual_bound': SCIPgetDualbound(self._scip),
+                    'dual_bound_root': SCIPgetDualboundRoot(self._scip),
+                    'lp_obj': SCIPgetLPObjval(self._scip),
+                    'primaldualintegral': self._scip.stat.primaldualintegral,
+                    'firstprimaldepth': self._scip.stat.firstprimaldepth,
+                    'nnodesbeforefirst': self._scip.stat.nnodesbeforefirst,
+                    'nlpsolsfound': self._scip.stat.nlpsolsfound,
+                    'nlpbestsolsfound': self._scip.stat.nlpbestsolsfound,
+                    # 'n_sols': SCIPgetNCountedSols(self._scip, &valid),
+                    }
+                    
+        cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
+        # todo: add fixed variables
+        node_info = {'node_num': SCIPnodeGetNumber(node),
+                     'depth': SCIPnodeGetDepth(node),
+                     'num_cands': nlpcands,
+                     'node_est': SCIPnodeGetEstimate(node),
+                     'node_lb': SCIPnodeGetLowerbound(node),
+                     'nactiveconss': self._scip.stat.nactiveconss,
+                     # 'regression': self._scip.stat.regressioncandsobjval,
+                    }
                 
-        return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)], cands_pc_scores, cands_dict
+        return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)], cands_pc_scores, cands_dict, mip_info, node_info
 
 
     def executeBranchRule(self, str name, allowaddcons):
