@@ -496,6 +496,7 @@ cdef extern from "scip/scip.h":
     SCIP_Bool SCIPnodeIsPropagatedAgain(SCIP_NODE* node)
     SCIP_DOMCHG* SCIPnodeGetDomchg(SCIP_NODE* node)
     SCIP_RETCODE SCIPgetChildren(SCIP* scip, SCIP_NODE*** children, int* nchildren)
+    int SCIPnodeGetNAddedConss(SCIP_NODE* node)
 
     # Variable Methods
     SCIP_RETCODE SCIPcreateVarBasic(SCIP* scip,
@@ -633,6 +634,12 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPaddSol(SCIP* scip, SCIP_SOL* sol, SCIP_Bool* stored)
     SCIP_RETCODE SCIPreadSol(SCIP* scip, const char* filename)
     SCIP_RETCODE SCIPreadSolFile(SCIP* scip, const char* filename, SCIP_SOL* sol, SCIP_Bool xml, SCIP_Bool*	partial, SCIP_Bool*	error)
+    int SCIPgetPlungeDepth(SCIP* scip)
+    int SCIPgetEffectiveRootDepth(SCIP* scip)
+    int SCIPgetNLeaves(SCIP* scip)
+    int SCIPgetNNodesLeft(SCIP* scip)
+    int SCIPgetCutoffdepth(SCIP* scip)
+    
 
     # Row Methods
     SCIP_RETCODE SCIPcreateRow(SCIP* scip, SCIP_ROW** row, const char* name, int len, SCIP_COL** cols, SCIP_Real* vals,
@@ -1004,9 +1011,6 @@ cdef extern from "scip/scip.h":
 
     BMS_BLKMEM* SCIPblkmem(SCIP* scip)
 
-cdef extern from "scip/tree.h":
-    int SCIPnodeGetNAddedConss(SCIP_NODE* node)
-
 cdef extern from "scip/scipdefplugins.h":
     SCIP_RETCODE SCIPincludeDefaultPlugins(SCIP* scip)
 
@@ -1313,6 +1317,7 @@ cdef extern from "scip/cons_countsols.h":
     SCIP_RETCODE SCIPcount(SCIP* scip)
     SCIP_RETCODE SCIPsetParamsCountsols(SCIP* scip)
     SCIP_Longint SCIPgetNCountedSols(SCIP* scip, SCIP_Bool* valid)
+    SCIP_Longint SCIPgetNCountedFeasSubtrees(SCIP* scip)
 
 cdef extern from "scip/paramset.h":
 
@@ -1388,10 +1393,15 @@ cdef extern from "scip/struct_stat.h":
         SCIP_HISTORY * 	glbhistorycrun
         # SCIP_REGRESSION * scipregression
         SCIP_Longint    ninternalnodes
+        SCIP_Longint    ncreatednodes
         SCIP_Longint 	ncreatednodesrun
         SCIP_Longint 	nobjleaves
         SCIP_Longint 	nfeasleaves
         SCIP_Longint 	ninfeasleaves
+        SCIP_Longint    nactivatednodes
+        SCIP_Longint    ndeactivatednodes
+        SCIP_Longint    nbacktracks
+        SCIP_Longint    ndelayedcutoffs
         int 	plungedepth
         SCIP_Longint 	nnodelpiterations
         SCIP_Longint 	nlpiterations
@@ -1406,6 +1416,22 @@ cdef extern from "scip/struct_stat.h":
         SCIP_Longint 	nlpsolsfound
         SCIP_Longint 	nlpbestsolsfound
         int 	nactiveconss
+        SCIP_Longint domchgcount
+        SCIP_Longint nboundchgs
+        SCIP_Real firstsolgap
+        SCIP_Real lastsolgap
+        SCIP_Real previousgap
+        SCIP_Real lastprimalbound
+        SCIP_Real lastdualbound
+        SCIP_Real lastlowerbound
+        SCIP_Real lastupperbound
+        SCIP_Real rootlpbestestimate
+        
+        
+        
+        
+cdef extern from "scip/scip_solvingstats.h":
+    SCIP_RETCODE SCIPupdateCutoffbound(SCIP* scip, SCIP_Real cutoffbound)
 
 cdef extern from "scip/type_misc.h":
     # ctypedef struct SCIP_REGRESSION:

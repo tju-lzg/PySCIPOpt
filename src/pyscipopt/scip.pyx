@@ -3102,6 +3102,8 @@ cdef class Model:
 		-------
         """
 		# todo: consider moving within Class Node
+        # todo: add num_fixed_variables at node
+        
         obj_val = SCIPgetLPObjval(self._scip)
         cands = self.getLPBranchCands()
 		
@@ -3111,8 +3113,9 @@ cdef class Model:
         cdef int depth = SCIPnodeGetDepth(node)
         cdef SCIP_Real node_lb = SCIPnodeGetLowerbound(node)
         cdef SCIP_Real node_est = SCIPnodeGetEstimate(node)
-		# SCIPnodeGetNAddedConss
-		# SCIPnodeIsPropagatedAgain
+        cdef SCIP_Bool is_propagated = SCIPnodeIsPropagatedAgain(node)
+        cdef int nadded_cons = SCIPnodeGetNAddedConss(node)
+        cdef int nactiveconss = self._scip.stat.nactiveconss
         
 		# see getBranchInfos for more on the effect of branching in the parent
         domchg = SCIPnodeGetDomchg(node)
@@ -3120,20 +3123,15 @@ cdef class Model:
         if nboundchgs == 0:  # root node case
             branched_on = None
             branched_on_idx = 0
-            # parent_num = None
+            branched_on_pos = None
+            parent_num = None
         else:
             assert nboundchgs == 1
             boundchg = SCIPdomchgGetBoundchg(domchg, 0)
             branched_on = Variable.create(SCIPboundchgGetVar(boundchg))
             branched_on_idx = branched_on.getIndex()
-            # parent_num = SCIPnodeGetNumber(SCIPnodeGetParent(node))
-		
-		# SCIPnodeGetAncestorBranchingPath
-		
-		# is_integer_feasible (bool)
-		# num_feasibilities (from getLPBranchCands)
-		# num_fixed_variables at node
-		# num_active_constraints
+            branched_on_pos = branched_on.getCol().getLPPos()
+            parent_num = SCIPnodeGetNumber(SCIPnodeGetParent(node))
 		
         return {
             'node_num': node_num,
@@ -3141,44 +3139,194 @@ cdef class Model:
             'obj_val': obj_val,
             'node_lb': node_lb, 
             'node_est': node_est,
+            'is_propagated': is_propagated,
+            'nadded_cons': nadded_cons,
             'nboundchgs': nboundchgs,
             'branched_on': branched_on,
             'branched_on_idx': branched_on_idx,
-            # 'parent_num': parent_num,
-            'num_cands': len(cands)
+            'branched_on_pos': branched_on_pos,
+            'parent_num': parent_num,
+            'num_cands': len(cands),
+            'nactiveconss': nactiveconss      
         }
-	
-    	
-    def getAllMIPRepr(self):
-        """Inspired from getMILPInfos
+    
+    def getMIPRepr(self):
+        """ Inspired from getMILPInfos.
+	    Extract and return MIP representation as dictionary.
+	    -------
         """
+        # todo: add about list of open nodes
+        # todo: reset stat?
         
         nvars = SCIPgetNVars(self._scip)
+        nconss = SCIPgetNConss(self._scip)
         
-        # FROM MODEL CLASS
-        cdef int nnodes = SCIPgetNNodes(self._scip)     # getNNodes
-        cdef float gap = SCIPgetGap(self._scip)         # getGap
-        cdef int depth = SCIPgetDepth(self._scip)       # getDepth
-        cands = self.getLPBranchCands()
+        # nodes counters
+        cdef SCIP_Longint nnodes = SCIPgetNNodes(self._scip)
+        cdef SCIP_Longint ninternalnodes = self._scip.stat.ninternalnodes
+        cdef SCIP_Longint ncreatednodes = self._scip.stat.ncreatednodes
+        cdef SCIP_Longint ncreatednodesrun = self._scip.stat.ncreatednodesrun
+        cdef int nleaves = SCIPgetNLeaves(self._scip)      
+        cdef SCIP_Longint nobjleaves = self._scip.stat.nobjleaves
+        cdef SCIP_Longint nfeasleaves = self._scip.stat.nfeasleaves
+        cdef SCIP_Longint ninfeasleaves = self._scip.stat.ninfeasleaves
+        cdef SCIP_Longint nactivatednodes = self._scip.stat.nactivatednodes
+        cdef SCIP_Longint ndeactivatednodes = self._scip.stat.ndeactivatednodes
+        cdef int nnodes_left = SCIPgetNNodesLeft(self._scip)
+             
+        # depth counters
+        cdef int maxdepth = SCIPgetMaxDepth(self._scip)
+        cdef int depth = SCIPgetDepth(self._scip)
+        cdef int plungedepth = SCIPgetPlungeDepth(self._scip)
+        cdef int effectiverootdepth = SCIPgetEffectiveRootDepth(self._scip)
+        cdef int cutoffdepth = SCIPgetCutoffdepth(self._scip)
+        cdef SCIP_Longint nbacktracks = self._scip.stat.nbacktracks
+        cdef SCIP_Longint ndelayedcutoffs = self._scip.stat.ndelayedcutoffs
         
-        # FROM NODE CLASS
-        cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
-        cdef float node_est = SCIPnodeGetEstimate(node)
-        cdef float node_lb = SCIPnodeGetLowerbound(node)
-        # py_node = Node(SCIPgetCurrentNode(self._scip))
-        # branch_info = py_node.getBranchInfos()
+        # domain and bound changes
+        cdef SCIP_Longint domchgcount = self._scip.stat.domchgcount
+        cdef SCIP_Longint nboundchgs = self._scip.stat.nboundchgs
         
-        # FROM VARIABLE CLASS
+        # iterations counter
+        cdef SCIP_Longint nnodelps = SCIPgetNNodeLPs(self._scip)
         
+        # bounds and solutions
+        cdef SCIP_Real gap = SCIPgetGap(self._scip)
+        cdef SCIP_Real primal_bound = SCIPgetPrimalbound(self._scip)
+        cdef SCIP_Real dual_bound = SCIPgetDualbound(self._scip)
+        cdef SCIP_Real dual_bound_root = SCIPgetDualboundRoot(self._scip)
+        cdef SCIP_Real lp_objval = SCIPgetLPObjval(self._scip)
+        cdef SCIP_Real primaldualintegral = self._scip.stat.primaldualintegral
+        cdef int firstprimaldepth = self._scip.stat.firstprimaldepth
+        cdef SCIP_Longint nnodesbeforefirst = self._scip.stat.nnodesbeforefirst
+        cdef SCIP_Longint nlpsolsfound = self._scip.stat.nlpsolsfound
+        cdef SCIP_Longint nlpbestsolsfound = self._scip.stat.nlpbestsolsfound
+        cdef SCIP_Longint nfeassubtrees = SCIPgetNCountedFeasSubtrees(self._scip)
+        cdef SCIP_Real firstsolgap = self._scip.stat.firstsolgap
+        cdef SCIP_Real lastsolgap = self._scip.stat.lastsolgap
+        cdef SCIP_Real previousgap = self._scip.stat.previousgap
+        cdef SCIP_Real lastprimalbound = self._scip.stat.lastprimalbound
+        cdef SCIP_Real lastdualbound = self._scip.stat.lastdualbound
+        cdef SCIP_Real lastlowerbound = self._scip.stat.lastlowerbound
+        cdef SCIP_Real lastupperbound = self._scip.stat.lastupperbound
+        cdef SCIP_Real rootlpbestestimate = self._scip.stat.rootlpbestestimate
+              
         return {
-            'nnodes': nnodes, 
-            'gap' : gap,
-            'depth' : depth,
-            'num_cands' : len(cands),
-            'node_est': node_est,
-            'node_lb': node_lb,
-            # 'branched_on': branch_info[1]
+            # nodes counters
+            'nnodes': nnodes,
+            'ninternalnodes': ninternalnodes,
+            'ncreatednodes': ncreatednodes,
+            'ncreatednodesrun': ncreatednodesrun,
+            'nleaves': nleaves,
+            'nobjleaves': nobjleaves,
+            'nfeasleaves': nfeasleaves,
+            'ninfeasleaves': ninfeasleaves,
+            'nactivatednodes': nactivatednodes,
+            'ndeactivatednodes': ndeactivatednodes,
+            'nnodes_left': nnodes_left,
+            # depth counters
+            'maxdepth': maxdepth,
+            'depth': depth,
+            'plungedepth': plungedepth, 
+            'effectiverootdepth': effectiverootdepth,
+            'cutoffdepth': cutoffdepth,    
+            'nbacktracks': nbacktracks,
+            'ndelayedcutoffs': ndelayedcutoffs,
+            # domain and bound changes
+            'domchgcount': domchgcount,
+            'nboundchgs': nboundchgs,
+            # iterations counter
+            'nnodelps': nnodelps,
+            # bounds and solutions
+            'gap': gap,
+            'primal_bound': primal_bound,
+            'dual_bound': dual_bound,
+            'dual_bound_root': dual_bound_root,
+            'lp_objval': lp_objval,
+            'primaldualintegral': primaldualintegral,
+            'firstprimaldepth': firstprimaldepth,
+            'nnodesbeforefirst': nnodesbeforefirst,
+            'nlpsolsfound': nlpsolsfound,
+            'nlpbestsolsfound': nlpbestsolsfound,
+            'nfeassubtrees': nfeassubtrees,
+            'firstsolgap': firstsolgap,
+            'lastsolgap': lastsolgap,
+            'previousgap': previousgap,
+            'lastprimalbound': lastprimalbound,
+            'lastdualbound': lastdualbound,
+            'lastlowerbound': lastlowerbound,
+            'lastupperbound': lastupperbound,
+            'rootlpbestestimate': rootlpbestestimate           
         }
+	
+    def getGridRepr(self):
+        """ Inspired from getMILPInfos.
+        Extract and return candidate variables (grid) representation as dictionary.
+        -------
+        """
+        # todo: reset stat?
+        # todo: compute participation in active constraints / total presence in constraints
+        # todo: add time it was in candidate set already (w.r.t. different branches?) 
+        
+        # get candidate variables (as in getLPBranchCands)
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
+        cdef SCIP_STAT* stat = self._scip.stat
+        cdef int nlpcands
+        cdef int npriolpcands
+        cdef int nfracimplvars
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
+        
+        cands_dict = {}
+        for i in range(nlpcands):
+            cands_dict[i] = {'col_pos': SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])),
+                             # solution
+                             'frac': lpcandsfrac[i], 
+                             'obj_lp': SCIPvarGetObjLP(lpcands[i]), 
+                             'red_cost': SCIPgetVarRedcost(self._scip, lpcands[i]),
+                             'lp_sol': SCIPvarGetLPSol(lpcands[i]),
+                             'avg_sol': SCIPvarGetAvgSol(lpcands[i]),
+                             # pc
+                             'pc_score': SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i]),
+                             'pc_score_cr': SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i]),
+                             'pc_up_cr': SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
+                             'pc_down_cr': SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
+                             'pc_count_up_cr': SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
+                             'pc_count_down_cr': SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
+                             # pc general 
+                             'pc_var_up': SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1),
+                             'pc_var_down': SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1),
+                             'pc_conf_bound_up': SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM),
+                             'pc_conf_bound_down': SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM),
+                             # branching history and stats
+                             'n_uses': SCIPvarGetNUses(lpcands[i]),  
+                             'avg_depth_up': SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS),
+                             'avg_depth_down': SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
+                             'last_depth': SCIPvarGetLastBdchgDepth(lpcands[i]),                
+                             # bounds
+                             'global_lb': SCIPvarGetLbGlobal(lpcands[i]),
+                             'global_ub': SCIPvarGetUbGlobal(lpcands[i]),
+                             'local_lb': SCIPvarGetLbLocal(lpcands[i]),
+                             'local_ub': SCIPvarGetUbLocal(lpcands[i]),
+                             'n_lbs': SCIPvarGetNVlbs(lpcands[i]),
+                             'n_ubs': SCIPvarGetNVubs(lpcands[i]),
+                             # implications, cliques, conflicts, inferences
+                             'n_impl_0': SCIPvarGetNImpls(lpcands[i], 0),
+                             'n_impl_1': SCIPvarGetNImpls(lpcands[i], 1),
+                             'n_cliques_0': SCIPvarGetNCliques(lpcands[i], 0),
+                             'n_cliques_1': SCIPvarGetNCliques(lpcands[i], 1),
+                             'conflict_score': SCIPgetVarConflictScoreCurrentRun(self._scip, lpcands[i]),
+                             'inference_up': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
+                             'inference_down': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),      
+                             }
+        return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)], cands_dict
+   
+    def getReward(self):  
+        """
+        Get raw information from solver to build reward.
+        """
+        return
 
     def getPCRepr(self):
         """
