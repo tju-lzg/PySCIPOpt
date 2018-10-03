@@ -497,6 +497,13 @@ cdef extern from "scip/scip.h":
     SCIP_DOMCHG* SCIPnodeGetDomchg(SCIP_NODE* node)
     SCIP_RETCODE SCIPgetChildren(SCIP* scip, SCIP_NODE*** children, int* nchildren)
     int SCIPnodeGetNAddedConss(SCIP_NODE* node)
+    SCIP_RETCODE SCIPgetOpenNodesData(SCIP* scip, 
+                                      SCIP_NODE***  leaves, 
+                                      SCIP_NODE***  children, 
+                                      SCIP_NODE***  siblings, 
+                                      int*  nleaves, 
+                                      int*  nchildren, 
+                                      int*  nsiblings)
 
     # Variable Methods
     SCIP_RETCODE SCIPcreateVarBasic(SCIP* scip,
@@ -940,9 +947,36 @@ cdef extern from "scip/scip.h":
     # Statistic Methods
     SCIP_RETCODE SCIPprintStatistics(SCIP* scip, FILE* outfile)
     SCIP_Longint SCIPgetNNodes(SCIP* scip)
+    SCIP_Longint SCIPgetNFeasibleLeaves(SCIP* scip)
+    SCIP_Longint SCIPgetNInfeasibleLeaves(SCIP* scip)
+    SCIP_Longint SCIPgetNObjlimLeaves(SCIP* scip)
+    SCIP_Longint SCIPgetNDelayedCutoffs(SCIP* scip)
     SCIP_Longint SCIPgetNLPs(SCIP* scip)
-    int SCIPgetMaxDepth(SCIP* scip)
+    SCIP_Longint SCIPgetNLPIterations(SCIP* scip)
     SCIP_Longint SCIPgetNNodeLPs(SCIP* scip)
+    SCIP_Longint SCIPgetNRootLPIterations(SCIP* scip)
+    int SCIPgetMaxDepth(SCIP* scip)
+    SCIP_Longint SCIPgetNBacktracks(SCIP* scip)
+    int SCIPgetNActiveConss(SCIP* scip)
+    SCIP_Real SCIPgetAvgDualbound(SCIP* scip)
+    SCIP_Real SCIPgetAvgLowerbound(SCIP* scip)
+    SCIP_Real SCIPgetLowerbound(SCIP* scip)
+    SCIP_Real SCIPgetLowerboundRoot(SCIP* scip)
+    SCIP_Real SCIPgetFirstPrimalBound(SCIP* scip)
+    SCIP_Real SCIPgetUpperbound(SCIP* scip)
+    SCIP_Bool SCIPisPrimalboundSol(SCIP* scip)
+    SCIP_Real SCIPgetTransGap(SCIP* scip)
+    SCIP_Longint SCIPgetNSolsFound(SCIP* scip)
+    SCIP_Longint SCIPgetNLimSolsFound(SCIP* scip)
+    SCIP_Longint SCIPgetNBestSolsFound(SCIP* scip)
+    SCIP_Real SCIPgetAvgPseudocostCountCurrentRun(SCIP* scip, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetPseudocostCount(SCIP* scip, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun)
+    SCIP_Real SCIPgetAvgPseudocostScoreCurrentRun(SCIP* scip)
+    SCIP_Real SCIPgetPseudocostVariance(SCIP* scip, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun)
+    # todo: possibly add on inference, conflict, ...
+    SCIP_Real SCIPgetAvgCutoffsCurrentRun(SCIP* scip, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetAvgCutoffScoreCurrentRun(SCIP* scip)
+
 
     # Parameter Functions
     SCIP_RETCODE SCIPsetBoolParam(SCIP* scip, char* name, SCIP_Bool value)
