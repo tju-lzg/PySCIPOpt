@@ -1427,11 +1427,6 @@ cdef extern from "scip/struct_stat.h":
         SCIP_Real lastupperbound
         SCIP_Real rootlpbestestimate
         
-        
-        
-        
-cdef extern from "scip/scip_solvingstats.h":
-    SCIP_RETCODE SCIPupdateCutoffbound(SCIP* scip, SCIP_Real cutoffbound)
 
 cdef extern from "scip/type_misc.h":
     # ctypedef struct SCIP_REGRESSION:
