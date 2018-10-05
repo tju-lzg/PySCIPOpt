@@ -504,6 +504,15 @@ cdef extern from "scip/scip.h":
                                       int*  nleaves, 
                                       int*  nchildren, 
                                       int*  nsiblings)
+    void SCIPnodeGetAncestorBranchingPath(SCIP_NODE*    node,
+                                          SCIP_VAR**    branchvars,
+                                          SCIP_Real*    branchbounds,
+                                          SCIP_BOUNDTYPE*   boundtypes,
+                                          int*  nbranchvars,
+                                          int   branchvarssize,
+                                          int*  nodeswitches,
+                                          int*  nnodes,
+                                          int   nodeswitchsize)
 
     # Variable Methods
     SCIP_RETCODE SCIPcreateVarBasic(SCIP* scip,

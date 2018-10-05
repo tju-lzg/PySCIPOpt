@@ -420,7 +420,7 @@ cdef class Node:
         result.append(SCIPboundchgGetBoundtype(boundchg))
         result.append(SCIPboundchgIsRedundant(boundchg))
         return result
-
+        
 
 cdef class Variable(Expr):
     """Is a linear expression and has SCIP_VAR*"""
@@ -3095,6 +3095,31 @@ cdef class Model:
                 'coefvals': row_coefvals,
             }
         }
+        
+    def getAncestorBranchingPath(self):
+        """Get set of variable branchings performed in all ancestor nodes."""
+        # todo: probably depth is sufficient to allocate memory
+        cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
+        cdef int depth = SCIPnodeGetDepth(node)
+        
+        cdef SCIP_VAR** branchvars = <SCIP_VAR **> malloc((depth+1) * sizeof(SCIP_VAR))
+        cdef SCIP_Real* branchbounds = <SCIP_Real *> malloc((depth+1) * sizeof(SCIP_Real))
+        cdef SCIP_BOUNDTYPE* boundtypes = <SCIP_BOUNDTYPE *> malloc((depth+1) * sizeof(SCIP_BOUNDTYPE))
+        cdef int nbranchvars
+        cdef int branchvarssize = depth+1
+        cdef int nodeswitches
+        cdef int nnodes
+        cdef int nodeswitchsize = depth+1
+    
+        SCIPnodeGetAncestorBranchingPath(node, branchvars, branchbounds, boundtypes, &nbranchvars, branchvarssize, &nodeswitches, &nnodes, nodeswitchsize)
+        varslist_pos = [SCIPcolGetLPPos(SCIPvarGetCol(branchvars[i])) for i in range(nbranchvars)]
+        print('nbranchvars: ', nbranchvars, 'branchvarssize: ', branchvarssize, 'nodeswitches: ', nodeswitches, 'nnodes: ', nnodes, 'nodeswitchsize: ', nodeswitchsize)
+        
+        free(branchvars)
+        free(branchbounds)
+        free(boundtypes)
+        
+        return varslist_pos, nbranchvars, branchvarssize, nodeswitches, nnodes, nodeswitchsize
 
     def getNodeRepr(self):
         """ Inspired from getMILPInfos.
@@ -3103,6 +3128,7 @@ cdef class Model:
         """
 		# todo: consider moving within Class Node
         # todo: add num_fixed_variables at node
+        # todo: slack
 
         cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
 		# see getBranchInfos for more on the effect of branching in the parent
@@ -3144,6 +3170,7 @@ cdef class Model:
 	    -------
         """
         # todo: reset stat?
+        # todo: add depth_open_nodes
         
         cdef SCIP_NODE** leaves
         cdef SCIP_NODE** children
