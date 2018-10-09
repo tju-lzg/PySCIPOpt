@@ -3095,7 +3095,28 @@ cdef class Model:
                 'coefvals': row_coefvals,
             }
         }
-        
+      
+    def getNDiscreteVars(self, transformed=False):
+        """Inspired from getVars and vtype.
+        Get number of discrete (binary + integer) variables in the problem.
+        """
+        cdef SCIP_VAR** _vars
+        cdef SCIP_VAR* _var
+        cdef int _nvars
+        vars = []
+
+        if transformed:
+            _vars = SCIPgetVars(self._scip)
+            _nvars = SCIPgetNVars(self._scip)
+        else:
+            _vars = SCIPgetOrigVars(self._scip)
+            _nvars = SCIPgetNOrigVars(self._scip)
+            
+        vars_type = [SCIPvarGetType(_vars[i]) for i in range(_nvars)]           
+        # vars_py = [Variable.create(_vars[i]) for i in range(_nvars)]
+        # vars_type = [vars_py[i].vtype() for i in range(len(vars_py))]
+        return vars_type.count(SCIP_VARTYPE_BINARY) + vars_type.count(SCIP_VARTYPE_INTEGER)
+      
     def getAncestorBranchingPath(self):
         """Get set of variable branchings performed in all ancestor nodes."""
         # todo: probably depth is sufficient to allocate memory
@@ -3113,8 +3134,7 @@ cdef class Model:
     
         SCIPnodeGetAncestorBranchingPath(node, branchvars, branchbounds, boundtypes, &nbranchvars, branchvarssize, &nodeswitches, &nnodes, nodeswitchsize)
         varslist_pos = [SCIPcolGetLPPos(SCIPvarGetCol(branchvars[i])) for i in range(nbranchvars)]
-        print('nbranchvars: ', nbranchvars, 'branchvarssize: ', branchvarssize, 'nodeswitches: ', nodeswitches, 'nnodes: ', nnodes, 'nodeswitchsize: ', nodeswitchsize)
-        
+        # print('nbranchvars: ', nbranchvars, 'branchvarssize: ', branchvarssize, 'nodeswitches: ', nodeswitches, 'nnodes: ', nnodes, 'nodeswitchsize: ', nodeswitchsize)     
         free(branchvars)
         free(branchbounds)
         free(boundtypes)
@@ -3171,6 +3191,8 @@ cdef class Model:
         """
         # todo: reset stat?
         # todo: add depth_open_nodes
+        # todo: add getNNodesBelowIncumbent
+        # todo: use ndiscrete variables instead of nvars
         
         cdef SCIP_NODE** leaves
         cdef SCIP_NODE** children
