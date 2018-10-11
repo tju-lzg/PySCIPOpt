@@ -5,6 +5,7 @@ import sys
 import warnings
 import numpy as np
 
+cimport numpy as np
 from cpython cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
 from libc.stdio cimport fdopen
@@ -3081,6 +3082,7 @@ cdef class Model:
 
         if not update:
             col_vals = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
+            col_incvals = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
             col_types = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
             col_coefs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
             col_ubs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
@@ -3090,6 +3092,7 @@ cdef class Model:
             col_ages = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
         else:
             col_vals = prev_state['node']['col']['vals']
+            col_incvals = prev_state['node']['col']['incvals']
             col_types = prev_state['node']['col']['types']
             col_coefs = prev_state['node']['col']['coefs']
             col_ubs = prev_state['node']['col']['ubs']
@@ -3107,18 +3110,27 @@ cdef class Model:
         cdef SCIP_Real [:] col_redcosts_view = col_redcosts
         cdef int [:] col_ages_view = col_ages
 
+        cdef SCIP_SOL* sol = SCIPgetBestSol(scip)
+        cdef SCIP_VAR* var
         for i in range(ncols):
             col_i = SCIPcolGetLPPos(cols[i])
+            var = SCIPcolGetVar(cols[i])
 
             if not update:
                 # Variable type
-                col_types_view[col_i] = SCIPvarGetType(SCIPcolGetVar(cols[i]))
+                col_types_view[col_i] = SCIPvarGetType(var)
 
                 # Objective coefficient
                 col_coefs_view[col_i] = SCIPcolGetObj(cols[i])
 
-            # Solution value
+            # LP solution value
             col_vals[col_i] = SCIPcolGetPrimsol(cols[i])
+
+            # Incumbent solution value
+            if sol is NULL:
+                col_incvals[col_i] = 1
+            else:
+                col_incvals[col_i] = SCIPgetSolVal(scip, sol, var)
 
             # Lower bound
             col_lbs_view[col_i] = SCIPcolGetLb(cols[i])
@@ -3272,6 +3284,7 @@ cdef class Model:
             'node': {
                 'col': {
                     'vals': col_vals,
+                    'incvals': col_incvals,
                     'types': col_types,
                     'coefs': col_coefs,
                     'lbs': col_lbs,
@@ -3299,6 +3312,159 @@ cdef class Model:
             },
         }
 
+    def getSolvingStats(self):
+        cdef SCIP* scip = self._scip
+
+        # recover open nodes
+        cdef SCIP_NODE **leaves, **children, **siblings
+        cdef int nleaves, nchildren, nsiblings, i
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+
+        # recover upper and lower bounds
+        cdef np.float_t primalbound = SCIPgetPrimalbound(scip)
+        cdef np.float_t dualbound = SCIPgetDualbound(scip)
+
+        # record open node quantiles
+        cdef np.ndarray[np.float_t, ndim=1] lowerbounds = np.empty([nleaves+nchildren+nsiblings+1], dtype=np.float)
+
+        lowerbounds[0] = dualbound
+        for i in range(nleaves):
+            lowerbounds[1+i] = leaves[i].lowerbound
+        for i in range(nchildren):
+            lowerbounds[1+nleaves+i] = children[i].lowerbound
+        for i in range(nsiblings):
+            lowerbounds[1+nleaves+nchildren+i] = siblings[i].lowerbound
+
+        percentiles = (10, 25, 50, 75, 90)
+        qs = np.percentile(lowerbounds, percentiles, overwrite_input=True, interpolation='linear')
+
+        return {
+
+            # open nodes (parent's) dual bounds quantiles
+            'opennodes_10quant': qs[0],
+            'opennodes_25quant': qs[1],
+            'opennodes_50quant': qs[2],
+            'opennodes_75quant': qs[3],
+            'opennodes_90quant': qs[4],
+
+            # hardcoded statistics
+            'ninternalnodes': scip.stat.ninternalnodes,
+            'ncreatednodes': scip.stat.ncreatednodes,
+            'ncreatednodesrun': scip.stat.ncreatednodesrun,
+            'nactivatednodes': scip.stat.nactivatednodes,
+            'ndeactivatednodes': scip.stat.ndeactivatednodes,
+
+            # http://scip.zib.de/doc/html/group__PublicLPMethods.php
+
+            'lp_obj': SCIPgetLPObjval(scip),
+
+            # http://scip.zib.de/doc/html/group__PublicTreeMethods.php
+
+            'depth': SCIPgetDepth(scip),
+            'focusdepth': SCIPgetFocusDepth(scip),
+            'plungedepth': SCIPgetPlungeDepth(scip),
+            'effectiverootdepth': SCIPgetEffectiveRootDepth(scip),
+            'inrepropagation': SCIPinRepropagation(scip),
+            'nleaves': SCIPgetNLeaves(scip),
+            'nnodesleft': SCIPgetNNodesLeft(scip),  # nleaves + nchildren + nsiblings
+            'cutoffdepth': SCIPgetCutoffdepth(scip),  # depth of first node in active path that is marked being cutoff
+            'repropdepth': SCIPgetRepropdepth(scip),  # depth of first node in active path that has to be propagated again
+
+            # http://scip.zib.de/doc/html/group__PublicSolvingStatsMethods.php
+
+            'nruns': SCIPgetNRuns(scip),
+            'nreoptruns': SCIPgetNReoptRuns(scip),
+            'nnodes': SCIPgetNNodes(scip),
+            'ntotalnodes': SCIPgetNTotalNodes(scip),  # total number of processed nodes in all runs, including the focus node
+            'nfeasibleleaves': SCIPgetNFeasibleLeaves(scip),  # number of leaf nodes processed with feasible relaxation solution
+            'ninfeasibleleaves': SCIPgetNInfeasibleLeaves(scip),  # number of infeasible leaf nodes processed
+            'nobjlimleaves': SCIPgetNObjlimLeaves(scip),  # number of processed leaf nodes that hit LP objective limit
+            'ndelayedcutoffs': SCIPgetNDelayedCutoffs(scip),  # gets number of times a selected node was from a cut off subtree
+            'nlps': SCIPgetNLPs(scip),
+            'nlpiterations': SCIPgetNLPIterations(scip),
+            'nnzs': SCIPgetNNZs(scip),
+            'nrootlpiterations': SCIPgetNRootLPIterations(scip),
+            'nrootfirstlpiterations': SCIPgetNRootFirstLPIterations(scip),
+            'nprimallps': SCIPgetNPrimalLPs(scip),
+            'nprimallpiterations': SCIPgetNPrimalLPIterations(scip),
+            'nduallps': SCIPgetNDualLPs(scip),
+            'nduallpiterations': SCIPgetNDualLPIterations(scip),
+            'nbarrierlps': SCIPgetNBarrierLPs(scip),
+            'nbarrierlpiterations': SCIPgetNBarrierLPIterations(scip),
+            'nresolvelps': SCIPgetNResolveLPs(scip),
+            'nresolvelpiterations': SCIPgetNResolveLPIterations(scip),
+            'nprimalresolvelps': SCIPgetNPrimalResolveLPs(scip),
+            'nprimalresolvelpiterations': SCIPgetNPrimalResolveLPIterations(scip),
+            'ndualresolvelps': SCIPgetNDualResolveLPs(scip),
+            'ndualresolvelpiterations': SCIPgetNDualResolveLPIterations(scip),
+            'nnodelps': SCIPgetNNodeLPs(scip),
+            'nnodelpiterations': SCIPgetNNodeLPIterations(scip),
+            'nnodeinitlps': SCIPgetNNodeInitLPs(scip),
+            'nnodeinitlpiterations': SCIPgetNNodeInitLPIterations(scip),
+            'ndivinglps': SCIPgetNDivingLPs(scip),
+            'ndivinglpiterations': SCIPgetNDivingLPIterations(scip),
+            'nstrongbranchs': SCIPgetNStrongbranchs(scip),
+            'nstrongbranchlpiterations': SCIPgetNStrongbranchLPIterations(scip),
+            'nrootstrongbranchs': SCIPgetNRootStrongbranchs(scip),
+            'nrootstrongbranchlpiterations': SCIPgetNRootStrongbranchLPIterations(scip),
+            'npricerounds': SCIPgetNPriceRounds(scip),
+            'npricevars': SCIPgetNPricevars(scip),
+            'npricevarsfound': SCIPgetNPricevarsFound(scip),
+            'npricevarsapplied': SCIPgetNPricevarsApplied(scip),
+            'nseparounds': SCIPgetNSepaRounds(scip),
+            'ncutsfound': SCIPgetNCutsFound(scip),
+            'ncutsfoundround': SCIPgetNCutsFoundRound(scip),
+            'ncutsapplied': SCIPgetNCutsApplied(scip),
+            'nconflictconssfound': SCIPgetNConflictConssFound(scip),
+            'nconflictconssfoundnode': SCIPgetNConflictConssFoundNode(scip),
+            'nconflictconssapplied': SCIPgetNConflictConssApplied(scip),
+            'maxdepth': SCIPgetMaxDepth(scip),  # maximal depth of all processed nodes in current branch and bound run (excluding probing nodes)
+            'maxtotaldepth': SCIPgetMaxTotalDepth(scip),
+            'nbacktracks': SCIPgetNBacktracks(scip),  # total number of backtracks, i.e. number of times, the new node was selected from the leaves queue
+            'nactivesonss': SCIPgetNActiveConss(scip),
+            'nenabledconss': SCIPgetNEnabledConss(scip),
+            'avgdualbound': SCIPgetAvgDualbound(scip),  # average dual bound of all unprocessed nodes for original problem
+            'avglowerbound': SCIPgetAvgLowerbound(scip),  # average lower (dual) bound of all unprocessed nodes in transformed problem
+            'dualbound': SCIPgetDualbound(scip),  # global dual bound
+            'lowerbound': SCIPgetLowerbound(scip),  # global lower (dual) bound in transformed problem
+            'dualboundroot': SCIPgetDualboundRoot(scip),  # gets dual bound of the root node for the original problem
+            'lowerboundroot': SCIPgetLowerboundRoot(scip),  # gets lower (dual) bound in transformed problem of the root node
+            'firstlpdualboundroot': SCIPgetFirstLPDualboundRoot(scip),  # gets dual bound for the original problem obtained by the first LP solve at the root node
+            'firstlplowerboundroot': SCIPgetFirstLPLowerboundRoot(scip),  # gets lower (dual) bound in transformed problem obtained by the first LP solve at the root node
+            'firstprimalbound': SCIPgetFirstPrimalBound(scip),  # the primal bound of the very first solution
+            'primalbound': SCIPgetPrimalbound(scip),  # gets global primal bound (objective value of best solution or user objective limit) for the original problem
+            'upperbound': SCIPgetUpperbound(scip),  # gets global upper (primal) bound in transformed problem (objective value of best solution or user objective limit)
+            'cutoffbound': SCIPgetCutoffbound(scip),
+            'isprimalboundsol': SCIPisPrimalboundSol(scip),
+            'get': SCIPgetGap(scip),
+            'transgap': SCIPgetTransGap(scip),
+            'nsolsfound': SCIPgetNSolsFound(scip),
+            'nlimsolsfound': SCIPgetNLimSolsFound(scip),
+            'nbestsolsfound': SCIPgetNBestSolsFound(scip),
+            # SCIPgetAvgPseudocost(scip, SCIP_Real solvaldelta)
+            # SCIPgetAvgPseudocostCurrentRun(scip, SCIP_Real solvaldelta)
+            # SCIPgetAvgPseudocostCount(scip, SCIP_BRANCHDIR dir)
+            # SCIPgetAvgPseudocostCountCurrentRun(scip, SCIP_BRANCHDIR dir)
+            # SCIPgetPseudocostCount(scip, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun)
+            'avgpseudocostscore': SCIPgetAvgPseudocostScore(scip),
+            # SCIPgetPseudocostVariance(scip, SCIP_BRANCHDIR branchdir, SCIP_Bool onlycurrentrun)
+            'avgpseudocostscorecurrentrun': SCIPgetAvgPseudocostScoreCurrentRun(scip),
+            'avgconflictscore': SCIPgetAvgConflictScore(scip),
+            'avgconflictscorecurrentrun': SCIPgetAvgConflictScoreCurrentRun(scip),
+            'avgconfliclengthscore': SCIPgetAvgConflictlengthScore(scip),
+            'avgconfliclengthscorecurrentrun': SCIPgetAvgConflictlengthScoreCurrentRun(scip),
+            # SCIPgetAvgInferences(scip, SCIP_BRANCHDIR dir)
+            # SCIPgetAvgInferencesCurrentRun(scip, SCIP_BRANCHDIR dir)
+            'avginferencescore': SCIPgetAvgInferenceScore(scip),
+            'avginferencescorecurrentrun': SCIPgetAvgInferenceScoreCurrentRun(scip),
+            # SCIPgetAvgCutoffs(scip, SCIP_BRANCHDIR dir)
+            # SCIPgetAvgCutoffsCurrentRun(scip, SCIP_BRANCHDIR dir)
+            'avgcutoffscore': SCIPgetAvgCutoffScore(scip),
+            'avgcuroffscorecurrentrun': SCIPgetAvgCutoffScoreCurrentRun(scip),
+            'deterministictime': SCIPgetDeterministicTime(scip),  # gets deterministic time number of LPs solved so far
+        }
+
     def executeBranchRule(self, str name, allowaddcons):
         cdef SCIP_BRANCHRULE*  branchrule
         cdef SCIP_RESULT result
@@ -3309,259 +3475,6 @@ cdef class Model:
         else:
             branchrule.branchexeclp(self._scip, branchrule, allowaddcons, &result)
             return result
-
-    def getStat(self):
-        cdef SCIP_STAT stat = self._scip.stat[0]
-        nvars = SCIPgetNVars(self._scip)
-
-        # Ints and reals
-        global_data = []
-        global_data.extend([
-        stat.nlpiterations,
-        stat.nrootlpiterations,
-        stat.nrootfirstlpiterations,
-        stat.nprimallpiterations,
-        stat.nduallpiterations,
-        stat.nlexduallpiterations,
-        stat.nbarrierlpiterations,
-        stat.nprimalresolvelpiterations,
-        # stat.ndualresolvelpiterations,
-        stat.nlexdualresolvelpiterations,
-        stat.nnodelpiterations,
-        stat.ninitlpiterations,
-        stat.ndivinglpiterations,
-        # stat.ndivesetlpiterations,
-        # stat.nsbdivinglpiterations,
-        stat.nsblpiterations,
-        stat.nrootsblpiterations,
-        stat.nconflictlpiterations,
-        stat.nnodes,
-        # stat.ninternalnodes,
-        # stat.nobjleaves,
-        # stat.nfeasleaves,
-        stat.ninfeasleaves,
-        stat.ntotalnodes,
-        # stat.ntotalinternalnodes,
-        # stat.ntotalnodesmerged,
-        stat.ncreatednodes,
-        # stat.ncreatednodesrun,
-        # stat.nactivatednodes,
-        # stat.ndeactivatednodes,
-        # stat.nearlybacktracks,
-        stat.nnodesaboverefbound,
-        stat.nbacktracks,
-        # stat.ndelayedcutoffs,
-        stat.nreprops,
-        stat.nrepropboundchgs,
-        stat.nrepropcutoffs,
-        stat.nlpsolsfound,
-        stat.nrelaxsolsfound,
-        stat.npssolsfound,
-        stat.nsbsolsfound,
-        stat.nlpbestsolsfound,
-        stat.nrelaxbestsolsfound,
-        stat.npsbestsolsfound,
-        stat.nsbbestsolsfound,
-        stat.nexternalsolsfound,
-        stat.lastdispnode,
-        stat.lastdivenode,
-        # stat.lastconflictnode,
-        stat.bestsolnode,
-        # stat.domchgcount,
-        stat.nboundchgs,
-        stat.nholechgs,
-        stat.nprobboundchgs,
-        stat.nprobholechgs,
-        stat.nsbdowndomchgs,
-        stat.nsbupdomchgs,
-        stat.nsbtimesiterlimhit,
-        stat.nnodesbeforefirst,
-        stat.ninitconssadded,
-        # stat.nactiveconssadded,
-        # stat.externmemestim,
-        stat.avgnnz,
-        stat.firstlpdualbound,
-        stat.rootlowerbound,
-        stat.vsidsweight,
-        stat.firstprimalbound,
-        stat.firstprimaltime,
-        stat.firstsolgap,
-        stat.lastsolgap,
-        stat.primalzeroittime,
-        stat.dualzeroittime,
-        stat.barrierzeroittime,
-        stat.maxcopytime,
-        stat.mincopytime,
-        stat.firstlptime,
-        stat.lastbranchvalue,
-        # stat.primaldualintegral,
-        stat.previousgap,
-        # stat.previntegralevaltime,
-        stat.lastprimalbound,
-        stat.lastdualbound,
-        stat.lastlowerbound,
-        stat.lastupperbound,
-        stat.rootlpbestestimate,
-        stat.referencebound,
-        stat.bestefficacy,
-        stat.minefficacyfac,
-        stat.detertimecnt
-        ])
-
-        # Clocks
-        # def unpack_clock(clock):
-        #     return  (#clock['lasttime'],
-        #             # clock['nruns'],
-        #             clock['clocktype'],
-        #             clock['usedefault'],
-        #             clock['enabled'])
-        # global_data.extend([
-        # *unpack_clock(stat.solvingtime[0]),
-        # *unpack_clock(stat.solvingtimeoverall[0]),
-        # *unpack_clock(stat.presolvingtime[0]),
-        # *unpack_clock(stat.presolvingtimeoverall[0]),
-        # *unpack_clock(stat.primallptime[0]),
-        # *unpack_clock(stat.duallptime[0]),
-        # *unpack_clock(stat.lexduallptime[0]),
-        # *unpack_clock(stat.barrierlptime[0]),
-        # *unpack_clock(stat.divinglptime[0]),
-        # *unpack_clock(stat.strongbranchtime[0]),
-        # *unpack_clock(stat.conflictlptime[0]),
-        # *unpack_clock(stat.lpsoltime[0]),
-        # *unpack_clock(stat.relaxsoltime[0]),
-        # *unpack_clock(stat.pseudosoltime[0]),
-        # *unpack_clock(stat.sbsoltime[0]),
-        # *unpack_clock(stat.nodeactivationtime[0]),
-        # *unpack_clock(stat.nlpsoltime[0]),
-        # *unpack_clock(stat.copyclock[0]),
-        # *unpack_clock(stat.strongpropclock[0]),
-        # *unpack_clock(stat.reoptupdatetime[0])
-        # ])
-
-        # Flags, ints and bools
-        global_data.extend([
-        stat.status,
-        stat.lastbranchdir,
-        stat.lastsblpsolstats[0],
-        stat.lastsblpsolstats[1],
-        stat.nnz,
-        stat.lpcount,
-        stat.relaxcount,
-        stat.nlps,
-        stat.nrootlps,
-        stat.nprimallps,
-        stat.nprimalzeroitlps,
-        stat.nduallps,
-        stat.ndualzeroitlps,
-        stat.nlexduallps,
-        stat.nbarrierlps,
-        stat.nbarrierzeroitlps,
-        stat.nprimalresolvelps,
-        # stat.ndualresolvelps,
-        stat.nlexdualresolvelps,
-        stat.nnodelps,
-        stat.ninitlps,
-        # stat.ndivinglps,
-        stat.ndivesetlps,
-        # stat.nsbdivinglps,
-        stat.nnumtroublelpmsgs,
-        stat.nstrongbranchs,
-        stat.nrootstrongbranchs,
-        stat.nconflictlps,
-        stat.nnlps,
-        stat.nisstoppedcalls,
-        stat.totaldivesetdepth,
-        # stat.subscipdepth,
-        stat.ndivesetcalls,
-        # stat.nruns,
-        stat.ncutpoolfails,
-        stat.nconfrestarts,
-        stat.nrootboundchgs,
-        stat.nrootboundchgsrun,
-        stat.nrootintfixings,
-        stat.nrootintfixingsrun,
-        stat.prevrunnvars,
-        stat.nvaridx,
-        stat.ncolidx,
-        stat.nrowidx,
-        # stat.marked_nvaridx,
-        stat.marked_ncolidx,
-        stat.marked_nrowidx,
-        stat.npricerounds,
-        stat.nseparounds,
-        stat.nincseparounds,
-        stat.ndisplines,
-        stat.maxdepth,
-        stat.maxtotaldepth,
-        stat.plungedepth,
-        stat.nactiveconss,
-        # stat.nenabledconss,
-        # stat.nimplications,
-        stat.npresolrounds,
-        stat.npresolroundsfast,
-        stat.npresolroundsmed,
-        stat.npresolroundsext,
-        stat.npresolfixedvars,
-        stat.npresolaggrvars,
-        stat.npresolchgvartypes,
-        stat.npresolchgbds,
-        stat.npresoladdholes,
-        stat.npresoldelconss,
-        stat.npresoladdconss,
-        stat.npresolupgdconss,
-        stat.npresolchgcoefs,
-        stat.npresolchgsides,
-        # stat.lastnpresolfixedvars,
-        # stat.lastnpresolaggrvars,
-        # stat.lastnpresolchgvartypes,
-        # stat.lastnpresolchgbds,
-        # stat.lastnpresoladdholes,
-        # stat.lastnpresoldelconss,
-        # stat.lastnpresoladdconss,
-        # stat.lastnpresolupgdconss,
-        # stat.lastnpresolchgcoefs,
-        # stat.lastnpresolchgsides,
-        stat.solindex,
-        stat.nrunsbeforefirst,
-        # stat.firstprimaldepth,
-        stat.ncopies,
-        # stat.nreoptruns,
-        stat.nclockskipsleft,
-        stat.memsavemode,
-        stat.userinterrupt,
-        stat.userrestart,
-        stat.inrestart,
-        stat.collectvarhistory,
-        stat.performpresol,
-        stat.branchedunbdvar,
-        stat.disableenforelaxmsg
-        ])
-        global_data = np.array(global_data, dtype=np.float32)
-
-        # # Variable data
-        # def parse_history(variable):
-        #     return [*variable['pscostcount'], *variable['pscostweightedmean'],
-        #             *variable['pscostvariance'], *variable['vsids'],
-        #             *variable['conflengthsum'], *variable['inferencesum'],
-        #             *variable['cutoffsum'], *variable['nactiveconflicts'],
-        #             *variable['nbranchings'], *variable['branchdepthsum']]
-        #
-        # variable_data = []
-        # for variable in range(nvars):
-        #     variable_data.append(parse_history(stat.glbhistory[variable]) +
-        #                          parse_history(stat.glbhistorycrun[variable]))
-        # variable_data = np.array(variable_data, dtype=np.float32)
-
-        def sanitize(array):
-            array[np.isnan(array)] = 0.
-            array[array > 1e4] = 1e4
-            array[array < -1e4] = -1e4
-            return array
-        return sanitize(global_data)
-
-    def reset_stat(self):
-        PY_SCIP_CALL(SCIPstatReset(self._scip.stat, self._scip.set,
-                                   self._scip.transprob, self._scip.origprob))
 
 # debugging memory management
 def is_memory_freed():
