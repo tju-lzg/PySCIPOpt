@@ -3358,6 +3358,138 @@ cdef class Model:
         Get raw information from solver to build reward.
         """
         return
+        
+    def getPCScores(self):
+        """Get PCScores for candidate variables.
+        """
+        # get candidate variables (as in getLPBranchCands)
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
+        cdef SCIP_STAT* stat = self._scip.stat
+        cdef int nlpcands
+        cdef int npriolpcands
+        cdef int nfracimplvars
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
+        
+        cands_pc_scores = []
+        for i in range(nlpcands):
+            cands_pc_scores.append(SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i]))
+        
+        return cands_pc_scores
+        
+    def getPCCands(self):
+        """Get the candidate set and its positions.
+        """
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
+        cdef SCIP_STAT* stat = self._scip.stat
+        cdef int nlpcands
+        cdef int npriolpcands
+        cdef int nfracimplvars
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
+        
+        return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)]
+        
+        
+    def getPCGridRepr(self):
+        """Get PC representation for candidate variables.
+        """
+        # get candidate variables (as in getLPBranchCands)
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
+        cdef SCIP_STAT* stat = self._scip.stat
+        cdef int nlpcands
+        cdef int npriolpcands
+        cdef int nfracimplvars
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
+        
+        cands_dict = {}
+        for i in range(nlpcands):
+            cands_dict[i] = {'col_pos': SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])),
+                             # solution
+                             'frac': lpcandsfrac[i], 
+                             'is_active': SCIPvarIsActive(lpcands[i]),
+                             'obj': SCIPvarGetObj(lpcands[i]),
+                             'obj_lp': SCIPvarGetObjLP(lpcands[i]), 
+                             'red_cost': SCIPgetVarRedcost(self._scip, lpcands[i]),
+                             'lp_sol': SCIPvarGetLPSol(lpcands[i]),
+                             'avg_sol': SCIPvarGetAvgSol(lpcands[i]),
+                             # pc
+                             'pc_score_cr': SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i]),
+                             'pc_up_cr': SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
+                             'pc_down_cr': SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
+                             'pc_count_up_cr': SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
+                             'pc_count_down_cr': SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
+                             # pc general 
+                             'pc_var_up': SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1),
+                             'pc_var_down': SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1),
+                             'pc_conf_bound_up': SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM),
+                             'pc_conf_bound_down': SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM),
+                             # branching history and stats
+                             'n_uses': SCIPvarGetNUses(lpcands[i]),  
+                             'avg_depth_up': SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS),
+                             'avg_depth_down': SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
+                             'last_depth': SCIPvarGetLastBdchgDepth(lpcands[i]),                
+                             # bounds
+                             'global_lb': SCIPvarGetLbGlobal(lpcands[i]),
+                             'global_ub': SCIPvarGetUbGlobal(lpcands[i]),
+                             'local_lb': SCIPvarGetLbLocal(lpcands[i]),
+                             'local_ub': SCIPvarGetUbLocal(lpcands[i]),
+                             'n_lbs': SCIPvarGetNVlbs(lpcands[i]),
+                             'n_ubs': SCIPvarGetNVubs(lpcands[i]),
+                             # implications, cliques, conflicts, inferences
+                             'n_impl_0': SCIPvarGetNImpls(lpcands[i], 0),
+                             'n_impl_1': SCIPvarGetNImpls(lpcands[i], 1),
+                             'n_cliques_0': SCIPvarGetNCliques(lpcands[i], 0),
+                             'n_cliques_1': SCIPvarGetNCliques(lpcands[i], 1),
+                             'conflict_score': SCIPgetVarConflictScoreCurrentRun(self._scip, lpcands[i]),
+                             'inference_up': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
+                             'inference_down': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),      
+                             }                         
+        return cands_dict          
+        
+        
+    def getPCMIPNodeInfo(self):
+        """Get general info (not used for learning).
+        """
+        # todo: add dives/jumps, objectives on open list, tree profile
+        mip_info = {# nodes and depth counters
+                    'nnodes': SCIPgetNNodes(self._scip),
+                    'ninternalnodes': self._scip.stat.ninternalnodes,
+                    'ncreatednodes': self._scip.stat.ncreatednodesrun,
+                    'nobjleaves': self._scip.stat.nobjleaves,
+                    'nfeasleaves': self._scip.stat.nfeasleaves,
+                    'ninfeasleaves': self._scip.stat.ninfeasleaves,
+                    'maxdepth': SCIPgetMaxDepth(self._scip),
+                    'plungedepth': self._scip.stat.plungedepth,  # maybe node_info? 
+                    # lp iterations counters
+                    'nnodelps': SCIPgetNNodeLPs(self._scip),
+                    # bounds, solutions and gap
+                    'gap': SCIPgetGap(self._scip),
+                    'primal_bound': SCIPgetPrimalbound(self._scip),
+                    'dual_bound': SCIPgetDualbound(self._scip),
+                    'dual_bound_root': SCIPgetDualboundRoot(self._scip),
+                    'lp_obj': SCIPgetLPObjval(self._scip),
+                    'primaldualintegral': self._scip.stat.primaldualintegral,
+                    'firstprimaldepth': self._scip.stat.firstprimaldepth,
+                    'nnodesbeforefirst': self._scip.stat.nnodesbeforefirst,
+                    'nlpsolsfound': self._scip.stat.nlpsolsfound,
+                    'nlpbestsolsfound': self._scip.stat.nlpbestsolsfound,
+                    }
+                    
+        cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
+        node_info = {'node_num': SCIPnodeGetNumber(node),
+                     'depth': SCIPnodeGetDepth(node),
+                     'num_cands': 99.,
+                     'node_est': SCIPnodeGetEstimate(node),
+                     'node_lb': SCIPnodeGetLowerbound(node),
+                     'nactiveconss': self._scip.stat.nactiveconss,
+                    }
+        return node_info, mip_info
+        
 
     def getPCRepr(self):
         """
