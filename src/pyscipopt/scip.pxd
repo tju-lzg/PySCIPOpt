@@ -571,6 +571,11 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPgetVarAvgInferencesCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPvarGetPseudocost(SCIP_VAR* var, SCIP_STAT* stat, SCIP_Real solvaldelta)
     SCIP_Real SCIPvarGetPseudocostVariance(SCIP_VAR* var, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun)
+    int SCIPgetNBinVars(SCIP* scip)
+    int SCIPgetNIntVars(SCIP* scip)
+    int SCIPgetNImplVars(SCIP* scip)
+    int SCIPgetNContVars(SCIP* scip)
+    int SCIPgetNFixedVars(SCIP* scip)
     
     # SCIP_DOMCHG Methods
     int SCIPdomchgGetNBoundchgs(SCIP_DOMCHG* domchg)
@@ -927,7 +932,8 @@ cdef extern from "scip/scip.h":
 		                                    SCIP_Bool  	  executebranching,
 		                                    SCIP_RESULT*  result)
     SCIP_BRANCHRULE* SCIPfindBranchrule(SCIP*        scip,
-                                        const char*  name)
+                                        const char*  name)   
+    SCIP_Real SCIPgetBranchingPoint(SCIP* scip, SCIP_VAR* var, SCIP_Real suggestion)
 
     # Numerical Methods
     SCIP_Real SCIPinfinity(SCIP* scip)
@@ -1405,7 +1411,7 @@ cdef extern from "scip/pub_var.h":
 
 cdef extern from "scip/def.h":
     SCIP_Real REALABS(SCIP_Real x)
-
+    double SCIP_INVALID
 
 cdef extern from "scip/struct_branch.h":
     cdef struct SCIP_Branchrule:
@@ -1469,7 +1475,6 @@ cdef extern from "scip/struct_stat.h":
         SCIP_Real lastlowerbound
         SCIP_Real lastupperbound
         SCIP_Real rootlpbestestimate
-        
 
 cdef extern from "scip/type_misc.h":
     # ctypedef struct SCIP_REGRESSION:

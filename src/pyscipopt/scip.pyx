@@ -3095,28 +3095,12 @@ cdef class Model:
                 'coefvals': row_coefvals,
             }
         }
-      
+    
     def getNDiscreteVars(self, transformed=False):
-        """Inspired from getVars and vtype.
-        Get number of discrete (binary + integer) variables in the problem.
-        """
-        cdef SCIP_VAR** _vars
-        cdef SCIP_VAR* _var
-        cdef int _nvars
-        vars = []
-
-        if transformed:
-            _vars = SCIPgetVars(self._scip)
-            _nvars = SCIPgetNVars(self._scip)
-        else:
-            _vars = SCIPgetOrigVars(self._scip)
-            _nvars = SCIPgetNOrigVars(self._scip)
-            
-        vars_type = [SCIPvarGetType(_vars[i]) for i in range(_nvars)]           
-        # vars_py = [Variable.create(_vars[i]) for i in range(_nvars)]
-        # vars_type = [vars_py[i].vtype() for i in range(len(vars_py))]
-        return vars_type.count(SCIP_VARTYPE_BINARY) + vars_type.count(SCIP_VARTYPE_INTEGER)
-      
+        """Get number of binary + integer variables"""
+        return SCIPgetNBinVars(self._scip) + SCIPgetNIntVars(self._scip)
+     
+    # todo: improve tracking of branching vars wrt nodes and step  
     def getAncestorBranchingPath(self):
         """Get set of variable branchings performed in all ancestor nodes."""
         # todo: probably depth is sufficient to allocate memory
@@ -3147,8 +3131,8 @@ cdef class Model:
 		-------
         """
 		# todo: consider moving within Class Node
-        # todo: add num_fixed_variables at node
         # todo: slack
+        # todo: SCIPgetNFixedVars
 
         cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
 		# see getBranchInfos for more on the effect of branching in the parent
@@ -3190,9 +3174,7 @@ cdef class Model:
 	    -------
         """
         # todo: reset stat?
-        # todo: add depth_open_nodes
         # todo: add getNNodesBelowIncumbent
-        # todo: use ndiscrete variables instead of nvars
         
         cdef SCIP_NODE** leaves
         cdef SCIP_NODE** children
@@ -3204,12 +3186,16 @@ cdef class Model:
         PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
         
         lower_bounds_open_nodes = []
+        depth_open_nodes = []
         for i in range(nleaves):
             lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(leaves[i]))
+            depth_open_nodes.append(SCIPnodeGetDepth(leaves[i]))
         for i in range(nchildren):
             lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(children[i]))
+            depth_open_nodes.append(SCIPnodeGetDepth(children[i]))
         for i in range(nsiblings):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i]))    
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i]))  
+            depth_open_nodes.append(SCIPnodeGetDepth(siblings[i]))  
             
         mip_dict = {'nvars': SCIPgetNVars(self._scip),
                     'nconss': SCIPgetNConss(self._scip),      
@@ -3287,7 +3273,7 @@ cdef class Model:
                     'avg_cutoff_score': SCIPgetAvgCutoffScoreCurrentRun(self._scip),
                     }
             
-        return lower_bounds_open_nodes, mip_dict
+        return lower_bounds_open_nodes, depth_open_nodes, mip_dict
             
     
     def getGridRepr(self):
@@ -3334,7 +3320,8 @@ cdef class Model:
                              'n_uses': SCIPvarGetNUses(lpcands[i]),  
                              'avg_depth_up': SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS),
                              'avg_depth_down': SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),
-                             'last_depth': SCIPvarGetLastBdchgDepth(lpcands[i]),                
+                             'last_depth': SCIPvarGetLastBdchgDepth(lpcands[i]),   
+                             'branch_point': SCIPgetBranchingPoint(self._scip, lpcands[i], SCIP_INVALID),             
                              # bounds
                              'global_lb': SCIPvarGetLbGlobal(lpcands[i]),
                              'global_ub': SCIPvarGetUbGlobal(lpcands[i]),
@@ -3351,13 +3338,8 @@ cdef class Model:
                              'inference_up': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
                              'inference_down': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),      
                              }
-        return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)], cands_dict
+        return cands_dict
    
-    def getReward(self):  
-        """
-        Get raw information from solver to build reward.
-        """
-        return
         
     def getPCScores(self):
         """Get PCScores for candidate variables.
@@ -3378,8 +3360,8 @@ cdef class Model:
         
         return cands_pc_scores
         
-    def getPCCands(self):
-        """Get the candidate set and its positions.
+    def getLPCands(self):
+        """Get the candidate set and its variables positions.
         """
         cdef SCIP_VAR** lpcands
         cdef SCIP_Real* lpcandssol
