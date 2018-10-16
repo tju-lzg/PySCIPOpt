@@ -3095,6 +3095,10 @@ cdef class Model:
                 'coefvals': row_coefvals,
             }
         }
+        
+    def getMaxDepth(self):
+        """Get max depth"""
+        return SCIPgetMaxDepth(self._scip)
     
     def getNDiscreteVars(self, transformed=False):
         """Get number of binary + integer variables"""
