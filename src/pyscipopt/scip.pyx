@@ -717,6 +717,10 @@ cdef class Model:
         """returns whether value < -feastol"""
         return SCIPisFeasNegative(self._scip, value)
 
+    def isFeasIntegral(self, value):
+        """returns whether value is integral"""
+        return SCIPisFeasIntegral(self._scip, value)
+
     def isLE(self, val1, val2):
         """returns whether val1 <= val2 + eps"""
         return SCIPisLE(self._scip, val1, val2)
