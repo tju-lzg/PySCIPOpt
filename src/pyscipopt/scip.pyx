@@ -3096,6 +3096,10 @@ cdef class Model:
             }
         }
         
+    def getNTotalNodes(self):
+        """"""
+        return SCIPgetNTotalNodes(self._scip)
+        
     def getMaxDepth(self):
         """Get max depth"""
         return SCIPgetMaxDepth(self._scip)
@@ -3128,16 +3132,61 @@ cdef class Model:
         free(boundtypes)
         
         return varslist_pos, nbranchvars, branchvarssize, nodeswitches, nnodes, nodeswitchsize
+        
+    def getNNodesLeft(self):
+        """Return the number of nodes left (leaves + children + siblings)
+        """
+        return SCIPgetNNodesLeft(self._scip)
+        
+    def getLowerboundOpenNodes(self):
+        """Return the list of lower bounds of all open nodes.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+        
+        lower_bounds_open_nodes = []
+        for i in range(nleaves):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(leaves[i]))
+        for i in range(nchildren):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(children[i]))
+        for i in range(nsiblings):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i]))       
+        return lower_bounds_open_nodes
+
+    def getDepthOpenNodes(self):
+        """Return the list of depth of all open nodes.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+        
+        depth_open_nodes = []
+        for i in range(nleaves):
+            depth_open_nodes.append(SCIPnodeGetDepth(leaves[i]))
+        for i in range(nchildren):
+            depth_open_nodes.append(SCIPnodeGetDepth(children[i]))
+        for i in range(nsiblings):
+            depth_open_nodes.append(SCIPnodeGetDepth(siblings[i])) 
+        return depth_open_nodes
 
     def getNodeRepr(self):
         """ Inspired from getMILPInfos.
 		Extract and return node LP representation as dictionary.
 		-------
         """
-		# todo: consider moving within Class Node
         # todo: slack
-        # todo: SCIPgetNFixedVars
-
+     
         cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
 		# see getBranchInfos for more on the effect of branching in the parent
         domchg = SCIPnodeGetDomchg(node)
@@ -3157,10 +3206,18 @@ cdef class Model:
 		
         return {
             'node_num': SCIPnodeGetNumber(node),
+            'maxdepth': SCIPgetMaxDepth(self._scip),
             'depth': SCIPnodeGetDepth(node),
+            'plungedepth': SCIPgetPlungeDepth(self._scip), 
+            'nbacktracks': SCIPgetNBacktracks(self._scip),
+            'firstprimaldepth': self._scip.stat.firstprimaldepth,
             'obj_val': SCIPgetLPObjval(self._scip),
             'node_lb': SCIPnodeGetLowerbound(node), 
             'node_est': SCIPnodeGetEstimate(node),
+            'upper_bound': SCIPgetUpperbound(self._scip),           # transformed space
+            'lower_bound': SCIPgetLowerbound(self._scip),           # transformed space
+            'lower_bound_root': SCIPgetLowerboundRoot(self._scip),
+            'avg_lower_bound': SCIPgetAvgLowerbound(self._scip),         
             'is_propagated': SCIPnodeIsPropagatedAgain(node),
             'nadded_cons': SCIPnodeGetNAddedConss(node),
             'nactiveconss': SCIPgetNActiveConss(self._scip),
@@ -3170,6 +3227,9 @@ cdef class Model:
             'branched_on_pos': branched_on_pos,
             'parent_num': parent_num,
             'num_cands': len(self.getLPBranchCands()),
+            'num_fixedvars': SCIPgetNFixedVars(self._scip), 
+            'nvars': SCIPgetNVars(self._scip),
+            'nconss': SCIPgetNConss(self._scip),       
         }
     
     def getMIPRepr(self):
@@ -3177,8 +3237,6 @@ cdef class Model:
 	    Extract and return MIP representation as dictionary.
 	    -------
         """
-        # todo: reset stat?
-        # todo: add getNNodesBelowIncumbent
         
         cdef SCIP_NODE** leaves
         cdef SCIP_NODE** children

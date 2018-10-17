@@ -660,8 +660,8 @@ cdef extern from "scip/scip.h":
     int SCIPgetNLeaves(SCIP* scip)
     int SCIPgetNNodesLeft(SCIP* scip)
     int SCIPgetCutoffdepth(SCIP* scip)
+    SCIP_Longint SCIPgetNTotalNodes	(SCIP* scip)
     
-
     # Row Methods
     SCIP_RETCODE SCIPcreateRow(SCIP* scip, SCIP_ROW** row, const char* name, int len, SCIP_COL** cols, SCIP_Real* vals,
                                SCIP_Real lhs, SCIP_Real rhs, SCIP_Bool local, SCIP_Bool modifiable, SCIP_Bool removable)
