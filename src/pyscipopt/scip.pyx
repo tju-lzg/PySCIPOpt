@@ -3197,16 +3197,16 @@ cdef class Model:
         domchg = SCIPnodeGetDomchg(node)
         nboundchgs = SCIPdomchgGetNBoundchgs(domchg)
         if nboundchgs == 0:  # root node case
-            branched_on = None
-            branched_on_idx = 0
-            branched_on_pos = None
+            # branched_on = None
+            # branched_on_idx = 0
+            # branched_on_pos = None
             parent_num = None
         else:
-            assert nboundchgs == 1
-            boundchg = SCIPdomchgGetBoundchg(domchg, 0)
-            branched_on = Variable.create(SCIPboundchgGetVar(boundchg))
-            branched_on_idx = branched_on.getIndex()
-            branched_on_pos = branched_on.getCol().getLPPos()
+            # assert nboundchgs == 1
+            # boundchg = SCIPdomchgGetBoundchg(domchg, 0)
+            # branched_on = Variable.create(SCIPboundchgGetVar(boundchg))
+            # branched_on_idx = branched_on.getIndex()
+            # branched_on_pos = branched_on.getCol().getLPPos()
             parent_num = SCIPnodeGetNumber(SCIPnodeGetParent(node))
 		
         return {
@@ -3227,9 +3227,9 @@ cdef class Model:
             'nadded_cons': SCIPnodeGetNAddedConss(node),
             'nactiveconss': SCIPgetNActiveConss(self._scip),
             'nboundchgs': nboundchgs,
-            'branched_on': branched_on,
-            'branched_on_idx': branched_on_idx,
-            'branched_on_pos': branched_on_pos,
+            # 'branched_on': branched_on,
+            # 'branched_on_idx': branched_on_idx,
+            # 'branched_on_pos': branched_on_pos,
             'parent_num': parent_num,
             'num_cands': len(self.getLPBranchCands()),
             'num_fixedvars': SCIPgetNFixedVars(self._scip), 
