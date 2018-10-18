@@ -3137,7 +3137,12 @@ cdef class Model:
         """Return the number of nodes left (leaves + children + siblings)
         """
         return SCIPgetNNodesLeft(self._scip)
-        
+    
+    def getLowerboundRoot(self):
+        """Return the lower bound at the root node.
+        """
+        return SCIPgetLowerboundRoot(self._scip)
+       
     def getLowerboundOpenNodes(self):
         """Return the list of lower bounds of all open nodes.
         """
