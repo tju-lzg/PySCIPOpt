@@ -1891,3 +1891,6 @@ cdef extern from "scip/struct_stat.h":
         SCIP_Bool 	branchedunbdvar
         SCIP_Bool 	disableenforelaxmsg
 
+cdef extern from "branch_fullstrong_vanilla.h":
+    SCIP_RETCODE SCIPincludeBranchruleFullstrongVanilla(SCIP* scip)
+

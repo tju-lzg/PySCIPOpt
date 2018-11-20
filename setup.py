@@ -41,7 +41,11 @@ if "--debug" in sys.argv:
     extra_compile_args.append('-UNDEBUG')
     sys.argv.remove("--debug")
 
-extensions = [Extension('pyscipopt.scip', [os.path.join(packagedir, 'scip'+ext)],
+extensions = [Extension('pyscipopt.scip',
+                          [
+                              os.path.join(packagedir, 'scip'+ext),
+                              os.path.join(packagedir, 'branch_fullstrong_vanilla.c'),
+                          ],
                           include_dirs=[includedir, numpy.get_include()],
                           library_dirs=[libdir],
                           libraries=[libname],

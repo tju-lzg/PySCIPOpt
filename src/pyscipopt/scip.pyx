@@ -651,6 +651,7 @@ cdef class Model:
     def includeDefaultPlugins(self):
         """Includes all default plug-ins into SCIP"""
         PY_SCIP_CALL(SCIPincludeDefaultPlugins(self._scip))
+        PY_SCIP_CALL(SCIPincludeBranchruleFullstrongVanilla(self._scip))
 
     def createProbBasic(self, problemName='model'):
         """Create new problem instance with given name
