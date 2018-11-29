@@ -3100,6 +3100,10 @@ cdef class Model:
         """"""
         return SCIPgetNTotalNodes(self._scip)
         
+    def getNLPIterations(self):
+        """"""
+        return SCIPgetNLPIterations(self._scip)
+        
     def getMaxDepth(self):
         """Get max depth"""
         return SCIPgetMaxDepth(self._scip)
@@ -3351,6 +3355,16 @@ cdef class Model:
         # todo: reset stat?
         # todo: compute participation in active constraints / total presence in constraints
         # todo: add time it was in candidate set already (w.r.t. different branches?) 
+        
+        # SCIPvarGetNImpls
+        # SCIPvarGetNBdchgInfosLb
+        # SCIPvarGetNBdchgInfosUb
+        # SCIPgetVarVSIDSCurrentRun
+        # SCIPgetVarConflictlengthScoreCurrentRun
+        # SCIPgetVarAvgConflictlengthCurrentRun
+        # SCIPgetVarAvgInferenceScoreCurrentRun
+        # SCIPgetVarAvgCutoffsCurrentRun
+        # SCIPgetVarAvgCutoffScoreCurrentRun
         
         # get candidate variables (as in getLPBranchCands)
         cdef SCIP_VAR** lpcands
