@@ -3990,7 +3990,7 @@ cdef class Model:
             'upperbound': SCIPgetUpperbound(scip),  # gets global upper (primal) bound in transformed problem (objective value of best solution or user objective limit)
             'cutoffbound': SCIPgetCutoffbound(scip),
             'isprimalboundsol': SCIPisPrimalboundSol(scip),
-            'get': SCIPgetGap(scip),
+            'gap': SCIPgetGap(scip),
             'transgap': SCIPgetTransGap(scip),
             'nsolsfound': SCIPgetNSolsFound(scip),
             'nlimsolsfound': SCIPgetNLimSolsFound(scip),
