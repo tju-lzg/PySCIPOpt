@@ -3356,16 +3356,6 @@ cdef class Model:
         # todo: compute participation in active constraints / total presence in constraints
         # todo: add time it was in candidate set already (w.r.t. different branches?) 
         
-        # SCIPvarGetNImpls
-        # SCIPvarGetNBdchgInfosLb
-        # SCIPvarGetNBdchgInfosUb
-        # SCIPgetVarVSIDSCurrentRun
-        # SCIPgetVarConflictlengthScoreCurrentRun
-        # SCIPgetVarAvgConflictlengthCurrentRun
-        # SCIPgetVarAvgInferenceScoreCurrentRun
-        # SCIPgetVarAvgCutoffsCurrentRun
-        # SCIPgetVarAvgCutoffScoreCurrentRun
-        
         # get candidate variables (as in getLPBranchCands)
         cdef SCIP_VAR** lpcands
         cdef SCIP_Real* lpcandssol
@@ -3410,14 +3400,25 @@ cdef class Model:
                              'local_ub': SCIPvarGetUbLocal(lpcands[i]),
                              'n_lbs': SCIPvarGetNVlbs(lpcands[i]),
                              'n_ubs': SCIPvarGetNVubs(lpcands[i]),
-                             # implications, cliques, conflicts, inferences
+                             'n_lb_chg': SCIPvarGetNBdchgInfosLb(lpcands[i]), #
+                             'n_ub_chg': SCIPvarGetNBdchgInfosUb(lpcands[i]), #
+                             # implications, cliques, conflicts, inferences, cutoff
                              'n_impl_0': SCIPvarGetNImpls(lpcands[i], 0),
                              'n_impl_1': SCIPvarGetNImpls(lpcands[i], 1),
                              'n_cliques_0': SCIPvarGetNCliques(lpcands[i], 0),
                              'n_cliques_1': SCIPvarGetNCliques(lpcands[i], 1),
                              'conflict_score': SCIPgetVarConflictScoreCurrentRun(self._scip, lpcands[i]),
+                             'conflict_len_score': SCIPgetVarConflictlengthScoreCurrentRun(self._scip, lpcands[i]), #
+                             'avg_conf_len_up': SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS), #
+                             'avg_conf_len_down': SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS), #
+                             'vsids_up': SCIPgetVarVSIDSCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS), #
+                             'vsids_down': SCIPgetVarVSIDSCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS), #
                              'inference_up': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS),
-                             'inference_down': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS),      
+                             'inference_down': SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS), 
+                             'avg_inference_score': SCIPgetVarAvgInferenceScoreCurrentRun(self._scip, lpcands[i]), # 
+                             'avg_cutoff_up': SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS), #
+                             'avg_cutoff_down': SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS), #
+                             'avg_cutoff_score': SCIPgetVarAvgCutoffScoreCurrentRun(self._scip, lpcands[i]), #       
                              }
         return cands_dict
    
