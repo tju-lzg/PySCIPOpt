@@ -1495,4 +1495,5 @@ cdef extern from "scip/type_misc.h":
         SCIP_CONFIDENCELEVEL_HIGH       = 3
         SCIP_CONFIDENCELEVEL_MAX        = 4
     
-        
+cdef extern from "math.h":
+    cpdef double log(double x)

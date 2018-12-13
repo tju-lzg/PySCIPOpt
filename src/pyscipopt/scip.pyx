@@ -3188,6 +3188,41 @@ cdef class Model:
         for i in range(nsiblings):
             depth_open_nodes.append(SCIPnodeGetDepth(siblings[i])) 
         return depth_open_nodes
+        
+    def getNumLPBranchCands(self):
+        """Get the number of branching candidates from the LP relaxation (to be used for open nodes?).
+        """
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
+        cdef int nlpcands
+        cdef int npriolpcands
+        cdef int nfracimplvars
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
+
+        return nlpcands
+    
+    # todo: complete here
+    def getIinfOpenNodes(self):
+        """Return the list of iinf (integer infeasibilities) of all open nodes.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+        
+        iinf_open_nodes = []
+        for i in range(nleaves):
+            iinf_open_nodes.append(SCIPnodeGetDepth(leaves[i]))
+        for i in range(nchildren):
+            iinf_open_nodes.append(SCIPnodeGetDepth(children[i]))
+        for i in range(nsiblings):
+            iinf_open_nodes.append(SCIPnodeGetDepth(siblings[i])) 
+        return iinf_open_nodes
 
     def getNodeRepr(self):
         """ Inspired from getMILPInfos.
@@ -3195,6 +3230,7 @@ cdef class Model:
 		-------
         """
         # todo: slack
+        # todo: iinf
      
         cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
 		# see getBranchInfos for more on the effect of branching in the parent
