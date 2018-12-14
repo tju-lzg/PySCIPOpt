@@ -1497,3 +1497,4 @@ cdef extern from "scip/type_misc.h":
     
 cdef extern from "math.h":
     cpdef double log(double x)
+    cpdef double exp(double x)

@@ -3167,6 +3167,40 @@ cdef class Model:
         for i in range(nsiblings):
             lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i]))       
         return lower_bounds_open_nodes
+        
+    def getOpenLowerBoundImprovement(self, eps=1e-3):
+        """Get the average lower bound improvement across the open nodes, with respect to the root lower bound.
+        Assumes the lower bound at the root is not 0.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+        
+        lower_bounds_open_nodes = []
+        for i in range(nleaves):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(leaves[i]))
+        for i in range(nchildren):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(children[i]))
+        for i in range(nsiblings):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i])) 
+            
+        lb_root = SCIPgetLowerboundRoot(self._scip)
+        assert lb_root != 0
+        
+        sumlog = 0
+        for lb in lower_bounds_open_nodes:
+            if lb > lb_root + eps:
+                sumlog += log(lb - lb_root)
+            else:
+                sumlog += log(eps)
+                
+        return exp(sumlog / len(lower_bounds_open_nodes))
+        
 
     def getDepthOpenNodes(self):
         """Return the list of depth of all open nodes.
