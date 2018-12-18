@@ -186,6 +186,8 @@ cdef class PY_SCIP_EVENTTYPE:
     ROWCONSTCHANGED = SCIP_EVENTTYPE_ROWCONSTCHANGED
     ROWSIDECHANGED  = SCIP_EVENTTYPE_ROWSIDECHANGED
     SYNC            = SCIP_EVENTTYPE_SYNC
+    
+    NODESOLVED     = SCIP_EVENTTYPE_NODESOLVED
 
 
 def PY_SCIP_CALL(SCIP_RETCODE rc):
@@ -3192,14 +3194,16 @@ cdef class Model:
         lb_root = SCIPgetLowerboundRoot(self._scip)
         assert lb_root != 0
         
-        sumlog = 0
-        for lb in lower_bounds_open_nodes:
-            if lb > lb_root + eps:
-                sumlog += log(lb - lb_root)
-            else:
-                sumlog += log(eps)
-                
-        return exp(sumlog / len(lower_bounds_open_nodes))
+        if len(lower_bounds_open_nodes) == 0:
+            return 0
+        else:
+            sumlog = 0
+            for lb in lower_bounds_open_nodes:
+                if lb > lb_root + eps:
+                    sumlog += log(lb - lb_root)
+                else:
+                    sumlog += log(eps)              
+            return exp(sumlog / len(lower_bounds_open_nodes))
         
 
     def getDepthOpenNodes(self):
@@ -3236,9 +3240,8 @@ cdef class Model:
 
         return nlpcands
     
-    # todo: complete here
-    def getIinfOpenNodes(self):
-        """Return the list of iinf (integer infeasibilities) of all open nodes.
+    def getOpenParentNum(self):
+        """Get the number (id) of parents nodes of all open nodes.
         """
         cdef SCIP_NODE** leaves
         cdef SCIP_NODE** children
@@ -3249,14 +3252,15 @@ cdef class Model:
 
         PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
         
-        iinf_open_nodes = []
+        parid_open_nodes = []
         for i in range(nleaves):
-            iinf_open_nodes.append(SCIPnodeGetDepth(leaves[i]))
+            parid_open_nodes.append(SCIPnodeGetNumber(SCIPnodeGetParent(leaves[i])))
         for i in range(nchildren):
-            iinf_open_nodes.append(SCIPnodeGetDepth(children[i]))
+            parid_open_nodes.append(SCIPnodeGetNumber(SCIPnodeGetParent(children[i])))
         for i in range(nsiblings):
-            iinf_open_nodes.append(SCIPnodeGetDepth(siblings[i])) 
-        return iinf_open_nodes
+            parid_open_nodes.append(SCIPnodeGetNumber(SCIPnodeGetParent(siblings[i])))
+        return parid_open_nodes
+        
 
     def getNodeRepr(self):
         """ Inspired from getMILPInfos.
