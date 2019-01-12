@@ -668,6 +668,7 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPvarGetUbLocal(SCIP_VAR* var)
     SCIP_Real SCIPvarGetObj(SCIP_VAR* var)
     SCIP_Real SCIPvarGetLPSol(SCIP_VAR* var)
+    SCIP_Real SCIPvarGetAvgSol(SCIP_VAR* var)
     int SCIPvarGetIndex(SCIP_VAR* var)
 
     # SCIP_DOMCHG Methods
