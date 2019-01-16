@@ -288,9 +288,8 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
       /* check if there are infeasible roundings */
       if( downinf && upinf )
       {
-         /* both roundings are infeasible -> node is infeasible */
+         score = SCIPinfinity(scip);
          SCIPdebugMsg(scip, " -> variable <%s> is infeasible in both directions\n", SCIPvarGetName(lpcands[c]));
-         break; /* terminate initialization loop, because node is infeasible */
       }
       else if( downinf )
       {
@@ -319,6 +318,11 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
          if( downinf || upinf )
          {
             besthasinf = TRUE;
+         }
+
+         if( downinf && upinf )
+         {
+            break;
          }
       }
 
