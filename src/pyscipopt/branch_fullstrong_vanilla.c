@@ -44,6 +44,8 @@
 struct SCIP_BranchruleData
 {
    SCIP_Bool             forcestrongbranch;  /**< should strong branching be applied even if there is just a single candidate? */
+   SCIP_Real*            latestscores;
+   SCIP_Bool*            validscores;
 };
 
 
@@ -75,6 +77,8 @@ SCIP_DECL_BRANCHFREE(branchFreeFullstrong)
    branchruledata = SCIPbranchruleGetData(branchrule);
    assert(branchruledata != NULL);
 
+   SCIPfreeBufferArray(scip, &(branchruledata->latestscores));
+   SCIPfreeBufferArray(scip, &(branchruledata->validscores));
    SCIPfreeBlockMemory(scip, &branchruledata);
    SCIPbranchruleSetData(branchrule, NULL);
 
@@ -86,6 +90,16 @@ SCIP_DECL_BRANCHFREE(branchFreeFullstrong)
 static
 SCIP_DECL_BRANCHINIT(branchInitFullstrong)
 {  /*lint --e{715}*/
+   int nvars = 0;
+   SCIP_BRANCHRULEDATA* branchruledata;
+
+   /* initialize branching rule data */
+   branchruledata = SCIPbranchruleGetData(branchrule);
+   assert(branchruledata != NULL);
+
+   nvars = SCIPgetNVars(scip);
+   SCIP_CALL( SCIPallocBufferArray(scip, &(branchruledata->latestscores), nvars) );
+   SCIP_CALL( SCIPallocBufferArray(scip, &(branchruledata->validscores), nvars) );
 
    return SCIP_OKAY;
 }
@@ -194,6 +208,8 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
    SCIP_Bool*            bestdownvalid,      /**< is bestdown a valid dual bound for the down branch? */
    SCIP_Bool*            bestupvalid,        /**< is bestup a valid dual bound for the up branch?     */
    SCIP_Real*            provedbound,        /**< proved dual bound for current subtree               */
+   SCIP_Real*            latestscores,
+   SCIP_Bool*            validscores,
    SCIP_RESULT*          result              /**< result pointer                                      */
    )
 {  /*lint --e{715}*/
@@ -208,7 +224,10 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
    SCIP_Bool upvalid;
    SCIP_Bool downinf;
    SCIP_Bool upinf;
+   int nvars = 0;
    int c;
+   int candidate_index;
+   SCIP_COL* candidate_column;
 
    SCIP_Bool besthasinf;
 
@@ -248,6 +267,15 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
 
     /* initialize strong branching without propagation */
    SCIP_CALL( SCIPstartStrongbranch(scip, FALSE) );
+
+
+   /* empty the previous score buffer */
+   nvars = SCIPgetNVars(scip);
+   for( c = 0; c < nvars; ++c)
+   {
+       latestscores[c] = -SCIPinfinity(scip);
+       validscores[c] = FALSE;
+   }
 
    /* search the full strong candidate
     * cycle through the candidates, starting with the position evaluated in the last run
@@ -304,6 +332,12 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
       else
       {
          score = SCIPgetBranchScore(scip, lpcands[c], downgain, upgain);
+
+          /* Update score buffer */
+          candidate_column = SCIPvarGetCol(lpcands[c]);
+          candidate_index = SCIPcolGetLPPos(candidate_column);
+          latestscores[candidate_index] = score;
+          validscores[candidate_index] = TRUE;
       }
 
       if( ( score > *bestscore && ( downinf || upinf || !besthasinf ) ) || ( !besthasinf && ( downinf || upinf ) ) )
@@ -385,7 +419,9 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpFullstrong)
 
    SCIP_CALL( SCIPselectVarStrongBranchingVanilla(scip, lpcands, lpcandssol, lpcandsfrac,
          nlpcands, npriolpcands, branchruledata->forcestrongbranch, &bestcand,
-         &bestdown, &bestup, &bestscore, &bestdownvalid, &bestupvalid, &provedbound, result) );
+         &bestdown, &bestup, &bestscore, &bestdownvalid, &bestupvalid, &provedbound,
+         branchruledata->latestscores, branchruledata->validscores,
+         result) );
 
    SCIP_NODE* downchild;
    SCIP_NODE* upchild;
@@ -458,4 +494,30 @@ SCIP_RETCODE SCIPincludeBranchruleFullstrongVanilla(
          &branchruledata->forcestrongbranch, TRUE, DEFAULT_FORCESTRONGBRANCH, NULL, NULL) );
 
    return SCIP_OKAY;
+}
+
+SCIP_Real* SCIPgetFullstrongVanillaLatestScores(
+   SCIP*                 scip                /**< SCIP data structure */
+)
+{
+   SCIP_BRANCHRULEDATA* branchruledata;
+   SCIP_BRANCHRULE* branchrule;
+
+   branchrule = SCIPfindBranchrule(scip, BRANCHRULE_NAME);
+   branchruledata = SCIPbranchruleGetData(branchrule);
+
+   return branchruledata->latestscores;
+}
+
+SCIP_Bool* SCIPgetFullstrongVanillaValidScores(
+   SCIP*                 scip                /**< SCIP data structure */
+)
+{
+   SCIP_BRANCHRULEDATA* branchruledata;
+   SCIP_BRANCHRULE* branchrule;
+
+   branchrule = SCIPfindBranchrule(scip, BRANCHRULE_NAME);
+   branchruledata = SCIPbranchruleGetData(branchrule);
+
+   return branchruledata->validscores;
 }

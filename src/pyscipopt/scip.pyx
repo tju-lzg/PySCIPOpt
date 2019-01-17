@@ -1073,8 +1073,8 @@ cdef class Model:
         cdef SCIP_Bool tightened
         PY_SCIP_CALL(SCIPtightenVarUb(self._scip, var.var, ub, force, &infeasible, &tightened))
         return infeasible, tightened
-    
-    
+
+
     def tightenVarUbGlobal(self, Variable var, ub, force=False):
         """Tighten the global upper bound, if the bound is tighter.
 
@@ -1090,7 +1090,7 @@ cdef class Model:
         cdef SCIP_Bool tightened
         PY_SCIP_CALL(SCIPtightenVarUbGlobal(self._scip, var.var, ub, force, &infeasible, &tightened))
         return infeasible, tightened
-    
+
     def tightenVarLbGlobal(self, Variable var, lb, force=False):
         """Tighten the global upper bound, if the bound is tighter.
 
@@ -2734,7 +2734,7 @@ cdef class Model:
             nlpcands:    number of LP branching candidates
             npriolpcands: number of candidates with maximal priority
             nfracimplvars: number of fractional implicit integer variables
-        
+
         """
         cdef int ncands
         cdef int nlpcands
@@ -2755,10 +2755,10 @@ cdef class Model:
 
     def branchVar(self, variable):
         """Branch on a non-continuous variable.
-        
+
         :param variable: Variable to branch on
         :return: tuple(downchild, eqchild, upchild) of Nodes of the left, middle and right child.
-        
+
         """
         cdef SCIP_NODE* downchild = <SCIP_NODE*> malloc(sizeof(SCIP_NODE))
         cdef SCIP_NODE* eqchild = <SCIP_NODE*> malloc(sizeof(SCIP_NODE))
@@ -2770,17 +2770,17 @@ cdef class Model:
 
     def branchVarVal(self, variable, value):
         """Branches on variable using a value which separates the domain of the variable.
-        
+
         :param variable: Variable to branch on
         :param value: float, value to branch on
         :return: tuple(downchild, eqchild, upchild) of Nodes of the left, middle and right child. Middle child only exists
                     if branch variable is integer
-       
+
         """
         cdef SCIP_NODE* downchild = <SCIP_NODE*> malloc(sizeof(SCIP_NODE))
         cdef SCIP_NODE* eqchild = <SCIP_NODE*> malloc(sizeof(SCIP_NODE))
         cdef SCIP_NODE* upchild = <SCIP_NODE*> malloc(sizeof(SCIP_NODE))
-        
+
         PY_SCIP_CALL(SCIPbranchVarVal(self._scip, (<Variable>variable).var, value, &downchild, &eqchild, &upchild))
         # TODO should the stuff be freed and how?
         return Node.create(downchild), Node.create(eqchild), Node.create(upchild)
@@ -2788,11 +2788,11 @@ cdef class Model:
 
     def createChild(self, nodeselprio, estimate):
         """Create a child node of the focus node.
-        
+
         :param nodeselprio: float, node selection priority of new node
-        :param estimate: float, estimate for(transformed) objective value of best feasible solution in subtree 
+        :param estimate: float, estimate for(transformed) objective value of best feasible solution in subtree
         :return: Node, the child which was created
-        
+
         """
         cdef SCIP_NODE* child = <SCIP_NODE*> malloc(sizeof(SCIP_NODE))
         PY_SCIP_CALL(SCIPcreateChild(self._scip, &child, nodeselprio, estimate))
@@ -4059,6 +4059,29 @@ cdef class Model:
         else:
             branchrule.branchexeclp(self._scip, branchrule, allowaddcons, &result)
             return result
+
+    def getVanillaStrongBranchingScores(self):
+        cdef SCIP_Real* latestscores;
+        cdef SCIP_Bool* validscores;
+        cdef np.ndarray[np.float32_t, ndim=1] latest_scores
+        cdef np.ndarray[np.int32_t,   ndim=1] valid_scores
+        cdef int nvars
+
+        nvars = SCIPgetNVars(self._scip);
+        latest_scores = np.empty(shape=(nvars, ), dtype=np.float32)
+        valid_scores = np.empty(shape=(nvars, ), dtype=np.int32)
+
+        latestscores = SCIPgetFullstrongVanillaLatestScores(self._scip)
+        validscores = SCIPgetFullstrongVanillaValidScores(self._scip)
+        for i in range(nvars):
+            if validscores[i] == True:
+                latest_scores[i] = latestscores[i]
+            else:
+                latest_scores[i] = np.nan
+            valid_scores[i] = validscores[i]
+
+        return latest_scores, valid_scores
+
 
 # debugging memory management
 def is_memory_freed():

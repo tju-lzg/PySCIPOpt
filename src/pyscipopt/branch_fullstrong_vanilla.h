@@ -47,6 +47,17 @@ SCIP_RETCODE SCIPincludeBranchruleFullstrongVanilla(
    SCIP*                 scip                /**< SCIP data structure */
    );
 
+EXTERN
+SCIP_Real* SCIPgetFullstrongVanillaLatestScores(
+   SCIP*                 scip                /**< SCIP data structure */
+   );
+
+EXTERN
+SCIP_Bool* SCIPgetFullstrongVanillaValidScores(
+   SCIP*                 scip                /**< SCIP data structure */
+   );
+
+
 
 #ifdef __cplusplus
 }
