@@ -77,8 +77,14 @@ SCIP_DECL_BRANCHFREE(branchFreeFullstrong)
    branchruledata = SCIPbranchruleGetData(branchrule);
    assert(branchruledata != NULL);
 
-   SCIPfreeBufferArray(scip, &(branchruledata->latestscores));
-   SCIPfreeBufferArray(scip, &(branchruledata->validscores));
+   if(branchruledata->latestscores != NULL)
+   {
+       SCIPfreeBufferArray(scip, &(branchruledata->latestscores));
+   }
+   if(branchruledata->validscores != NULL)
+   {
+      SCIPfreeBufferArray(scip, &(branchruledata->validscores));
+   }
    SCIPfreeBlockMemory(scip, &branchruledata);
    SCIPbranchruleSetData(branchrule, NULL);
 
@@ -90,17 +96,21 @@ SCIP_DECL_BRANCHFREE(branchFreeFullstrong)
 static
 SCIP_DECL_BRANCHINIT(branchInitFullstrong)
 {  /*lint --e{715}*/
-   int nvars = 0;
+   int nvars;
    SCIP_BRANCHRULEDATA* branchruledata;
 
    /* initialize branching rule data */
+   nvars = SCIPgetNVars(scip);
    branchruledata = SCIPbranchruleGetData(branchrule);
    assert(branchruledata != NULL);
-
-   nvars = SCIPgetNVars(scip);
-   SCIP_CALL( SCIPallocBufferArray(scip, &(branchruledata->latestscores), nvars) );
-   SCIP_CALL( SCIPallocBufferArray(scip, &(branchruledata->validscores), nvars) );
-
+   if(branchruledata->latestscores == NULL)
+   {
+       SCIP_CALL( SCIPallocBufferArray(scip, &(branchruledata->latestscores), nvars) );
+   }
+   if(branchruledata->validscores == NULL)
+   {
+       SCIP_CALL( SCIPallocBufferArray(scip, &(branchruledata->validscores), nvars) );
+   }
    return SCIP_OKAY;
 }
 
@@ -469,6 +479,8 @@ SCIP_RETCODE SCIPincludeBranchruleFullstrongVanilla(
 
    /* create fullstrong branching rule data */
    SCIP_CALL( SCIPallocBlockMemory(scip, &branchruledata) );
+   branchruledata->latestscores = NULL;
+   branchruledata->validscores = NULL;
    // branchruledata->lastcand = 0;
    // branchruledata->skipsize = 0;
    // branchruledata->skipup = NULL;
