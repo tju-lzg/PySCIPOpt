@@ -4061,26 +4061,28 @@ cdef class Model:
             return result
 
     def getVanillaStrongBranchingScores(self):
+        cdef int nlpcands
+        cdef SCIP_VAR** lpcands
         cdef SCIP_Real* latestscores;
         cdef SCIP_Bool* validscores;
         cdef np.ndarray[np.float32_t, ndim=1] latest_scores
         cdef np.ndarray[np.int32_t,   ndim=1] valid_scores
-        cdef int nvars
+        cdef np.ndarray[np.int32_t,   ndim=1] lp_positions
 
-        nvars = SCIPgetNVars(self._scip);
-        latest_scores = np.empty(shape=(nvars, ), dtype=np.float32)
-        valid_scores = np.empty(shape=(nvars, ), dtype=np.int32)
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, NULL, NULL, &nlpcands, NULL, NULL))
+
+        latest_scores = np.empty(shape=(nlpcands, ), dtype=np.float32)
+        valid_scores = np.empty(shape=(nlpcands, ), dtype=np.int32)
+        lp_positions = np.empty(shape=(nlpcands, ), dtype=np.int32)
 
         latestscores = SCIPgetFullstrongVanillaLatestScores(self._scip)
         validscores = SCIPgetFullstrongVanillaValidScores(self._scip)
-        for i in range(nvars):
-            if validscores[i] == True:
-                latest_scores[i] = latestscores[i]
-            else:
-                latest_scores[i] = np.nan
+        for i in range(nlpcands):
+            latest_scores[i] = latestscores[i]
             valid_scores[i] = validscores[i]
+            lp_positions[i] = SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i]))
 
-        return latest_scores, valid_scores
+        return latest_scores, valid_scores, lp_positions
 
 
 # debugging memory management

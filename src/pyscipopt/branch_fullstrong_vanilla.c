@@ -44,6 +44,7 @@
 struct SCIP_BranchruleData
 {
    SCIP_Bool             forcestrongbranch;  /**< should strong branching be evaluated for all candidates no matter what ? */
+   int                   scoresize;
    SCIP_Real*            latestscores;
    SCIP_Bool*            validscores;
 };
@@ -77,14 +78,9 @@ SCIP_DECL_BRANCHFREE(branchFreeFullstrong)
    branchruledata = SCIPbranchruleGetData(branchrule);
    assert(branchruledata != NULL);
 
-   if(branchruledata->latestscores != NULL)
-   {
-       SCIPfreeBufferArray(scip, &(branchruledata->latestscores));
-   }
-   if(branchruledata->validscores != NULL)
-   {
-      SCIPfreeBufferArray(scip, &(branchruledata->validscores));
-   }
+   SCIPfreeBlockMemoryArrayNull(scip, &branchruledata->latestscores, branchruledata->scoresize);
+   SCIPfreeBlockMemoryArrayNull(scip, &branchruledata->validscores, branchruledata->scoresize);
+
    SCIPfreeBlockMemory(scip, &branchruledata);
    SCIPbranchruleSetData(branchrule, NULL);
 
@@ -96,21 +92,7 @@ SCIP_DECL_BRANCHFREE(branchFreeFullstrong)
 static
 SCIP_DECL_BRANCHINIT(branchInitFullstrong)
 {  /*lint --e{715}*/
-   int nvars;
-   SCIP_BRANCHRULEDATA* branchruledata;
 
-   /* initialize branching rule data */
-   nvars = SCIPgetNVars(scip);
-   branchruledata = SCIPbranchruleGetData(branchrule);
-   assert(branchruledata != NULL);
-   if(branchruledata->latestscores == NULL)
-   {
-       SCIP_CALL( SCIPallocBufferArray(scip, &(branchruledata->latestscores), nvars) );
-   }
-   if(branchruledata->validscores == NULL)
-   {
-       SCIP_CALL( SCIPallocBufferArray(scip, &(branchruledata->validscores), nvars) );
-   }
    return SCIP_OKAY;
 }
 
@@ -234,10 +216,7 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
    SCIP_Bool upvalid;
    SCIP_Bool downinf;
    SCIP_Bool upinf;
-   int nvars = 0;
    int c;
-   int candidate_index;
-   SCIP_COL* candidate_column;
 
    SCIP_Bool besthasinf;
 
@@ -279,9 +258,8 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
    SCIP_CALL( SCIPstartStrongbranch(scip, FALSE) );
 
 
-   /* empty the previous score buffer */
-   nvars = SCIPgetNVars(scip);
-   for( c = 0; c < nvars; ++c)
+   /* empty the score buffer */
+   for( c = 0; c < nlpcands; ++c)
    {
        latestscores[c] = -SCIPinfinity(scip);
        validscores[c] = FALSE;
@@ -342,13 +320,11 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
       else
       {
          score = SCIPgetBranchScore(scip, lpcands[c], downgain, upgain);
-
-          /* Update score buffer */
-          candidate_column = SCIPvarGetCol(lpcands[c]);
-          candidate_index = SCIPcolGetLPPos(candidate_column);
-          latestscores[candidate_index] = score;
-          validscores[candidate_index] = TRUE;
+         validscores[c] = TRUE;
       }
+
+      /* Update score buffer */
+      latestscores[c] = score;
 
       if( ( score > *bestscore && ( downinf || upinf || !besthasinf ) ) || ( !besthasinf && ( downinf || upinf ) ) )
       {
@@ -427,6 +403,21 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpFullstrong)
    SCIP_CALL( SCIPduplicateBufferArray(scip, &lpcandssol, tmplpcandssol, nlpcands) );
    SCIP_CALL( SCIPduplicateBufferArray(scip, &lpcandsfrac, tmplpcandsfrac, nlpcands) );
 
+   /* initialize branching rule data */
+   assert((branchruledata->latestscores != NULL) == (branchruledata->validscores != NULL));
+
+   if( branchruledata->latestscores != NULL )
+   {
+      SCIPfreeBlockMemoryArray(scip, &branchruledata->latestscores, branchruledata->scoresize);
+      SCIPfreeBlockMemoryArray(scip, &branchruledata->validscores, branchruledata->scoresize);
+   }
+
+   branchruledata->scoresize = nlpcands;
+   SCIP_CALL( SCIPallocBlockMemoryArray(scip, &branchruledata->latestscores, branchruledata->scoresize) );
+   SCIP_CALL( SCIPallocBlockMemoryArray(scip, &branchruledata->validscores, branchruledata->scoresize) );
+   BMSclearMemoryArray(branchruledata->latestscores, branchruledata->scoresize);
+   BMSclearMemoryArray(branchruledata->validscores, branchruledata->scoresize);
+
    SCIP_CALL( SCIPselectVarStrongBranchingVanilla(scip, lpcands, lpcandssol, lpcandsfrac,
          nlpcands, npriolpcands, branchruledata->forcestrongbranch, &bestcand,
          &bestdown, &bestup, &bestscore, &bestdownvalid, &bestupvalid, &provedbound,
@@ -481,10 +472,7 @@ SCIP_RETCODE SCIPincludeBranchruleFullstrongVanilla(
    SCIP_CALL( SCIPallocBlockMemory(scip, &branchruledata) );
    branchruledata->latestscores = NULL;
    branchruledata->validscores = NULL;
-   // branchruledata->lastcand = 0;
-   // branchruledata->skipsize = 0;
-   // branchruledata->skipup = NULL;
-   // branchruledata->skipdown = NULL;
+   branchruledata->scoresize = 0;
 
    /* include branching rule */
    SCIP_CALL( SCIPincludeBranchruleBasic(scip, &branchrule, BRANCHRULE_NAME, BRANCHRULE_DESC, BRANCHRULE_PRIORITY,
