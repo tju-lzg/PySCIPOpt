@@ -37,13 +37,13 @@
 #define BRANCHRULE_MAXDEPTH      -1
 #define BRANCHRULE_MAXBOUNDDIST  1.0
 
-#define DEFAULT_FORCESTRONGBRANCH FALSE      /**< should strong branching be applied even if there is just a single candidate? */
+#define DEFAULT_FORCESTRONGBRANCH TRUE      /**< should strong branching be evaluated for all candidates no matter what? */
 
 
 /** branching rule data */
 struct SCIP_BranchruleData
 {
-   SCIP_Bool             forcestrongbranch;  /**< should strong branching be applied even if there is just a single candidate? */
+   SCIP_Bool             forcestrongbranch;  /**< should strong branching be evaluated for all candidates no matter what ? */
    SCIP_Real*            latestscores;
    SCIP_Bool*            validscores;
 };
@@ -210,7 +210,7 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
    SCIP_Real*            lpcandsfrac,        /**< fractional values of the branching candidates       */
    int                   nlpcands,           /**< number of branching candidates                      */
    int                   npriolpcands,       /**< number of priority branching candidates             */
-   SCIP_Bool             forcestrongbranch,  /**< should strong branching be applied even if there is just a single candidate? */
+   SCIP_Bool             forcestrongbranch,  /**< should strong branching be evaluated for all candidates no matter what? */
    int*                  bestcand,           /**< best candidate for branching                        */
    SCIP_Real*            bestdown,           /**< objective value of the down branch for bestcand     */
    SCIP_Real*            bestup,             /**< objective value of the up branch for bestcand       */
@@ -288,7 +288,7 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
    }
 
    /* search the full strong candidate
-    * cycle through the candidates, starting with the position evaluated in the last run
+    * cycle through the candidates
     */
    score = *bestscore;
    besthasinf = FALSE;
@@ -364,7 +364,7 @@ SCIP_RETCODE SCIPselectVarStrongBranchingVanilla(
             besthasinf = TRUE;
          }
 
-         if( downinf && upinf )
+         if( !forcestrongbranch && downinf && upinf )
          {
             break;
          }
@@ -502,7 +502,7 @@ SCIP_RETCODE SCIPincludeBranchruleFullstrongVanilla(
    /* fullstrong branching rule parameters */
    SCIP_CALL( SCIPaddBoolParam(scip,
          "branching/fullstrong-vanilla/forcestrongbranch",
-         "should strong branching be applied even if there is just a single candidate?",
+         "should strong branching be evaluated for all candidates no matter what?",
          &branchruledata->forcestrongbranch, TRUE, DEFAULT_FORCESTRONGBRANCH, NULL, NULL) );
 
    return SCIP_OKAY;
