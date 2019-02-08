@@ -3154,6 +3154,8 @@ cdef class Model:
             return "infeasible"
         elif stat == SCIP_STATUS_UNBOUNDED:
             return "unbounded"
+        elif stat == SCIP_STATUS_USERINTERRUPT:
+            return "userinterrupt"
         else:
             return "unknown"
 
