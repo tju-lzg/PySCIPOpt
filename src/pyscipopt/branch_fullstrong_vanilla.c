@@ -440,11 +440,16 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpFullstrong)
    SCIPdebugMsg(scip, " -> %d candidates, selected candidate %d: variable <%s> (solval=%g, down=%g, up=%g, score=%g)\n",
       nlpcands, bestcand, SCIPvarGetName(var), lpcandssol[bestcand], bestdown, bestup, bestscore);
    SCIP_CALL( SCIPbranchVarVal(scip, var, val, &downchild, NULL, &upchild) );
-   assert(downchild != NULL);
-   assert(upchild != NULL);
+   assert(downchild != NULL || upchild != NULL);
 
-   SCIPdebugMsg(scip, " -> down child's lowerbound: %g\n", SCIPnodeGetLowerbound(downchild));
-   SCIPdebugMsg(scip, " -> up child's lowerbound: %g\n", SCIPnodeGetLowerbound(upchild));
+   if( downchild != NULL )
+   {
+       SCIPdebugMsg(scip, " -> down child's lowerbound: %g\n", SCIPnodeGetLowerbound(downchild));
+   }
+   if( upchild != NULL )
+   {
+       SCIPdebugMsg(scip, " -> up child's lowerbound: %g\n", SCIPnodeGetLowerbound(upchild));
+   }
 
    *result = SCIP_BRANCHED;
 
