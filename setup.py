@@ -45,6 +45,7 @@ extensions = [Extension('pyscipopt.scip',
                           [
                               os.path.join(packagedir, 'scip'+ext),
                               os.path.join(packagedir, 'branch_fullstrong_vanilla.c'),
+                              os.path.join(packagedir, 'branch_fullstrong_forced.c'),
                           ],
                           include_dirs=[includedir, numpy.get_include()],
                           library_dirs=[libdir],
