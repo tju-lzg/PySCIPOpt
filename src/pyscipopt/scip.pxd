@@ -303,7 +303,10 @@ cdef extern from "scip/scip.h":
         pass
 
     ctypedef struct SCIP_NODE:
-        pass
+        SCIP_Real lowerbound
+        int depth
+        # TODO: add here parent #iinf? 
+
 
     ctypedef struct SCIP_NODESEL:
         pass
@@ -498,12 +501,12 @@ cdef extern from "scip/scip.h":
     SCIP_DOMCHG* SCIPnodeGetDomchg(SCIP_NODE* node)
     SCIP_RETCODE SCIPgetChildren(SCIP* scip, SCIP_NODE*** children, int* nchildren)
     int SCIPnodeGetNAddedConss(SCIP_NODE* node)
-    SCIP_RETCODE SCIPgetOpenNodesData(SCIP* scip, 
-                                      SCIP_NODE***  leaves, 
-                                      SCIP_NODE***  children, 
-                                      SCIP_NODE***  siblings, 
-                                      int*  nleaves, 
-                                      int*  nchildren, 
+    SCIP_RETCODE SCIPgetOpenNodesData(SCIP* scip,
+                                      SCIP_NODE***  leaves,
+                                      SCIP_NODE***  children,
+                                      SCIP_NODE***  siblings,
+                                      int*  nleaves,
+                                      int*  nchildren,
                                       int*  nsiblings)
     void SCIPnodeGetAncestorBranchingPath(SCIP_NODE*    node,
                                           SCIP_VAR**    branchvars,
@@ -585,7 +588,7 @@ cdef extern from "scip/scip.h":
     int SCIPgetNImplVars(SCIP* scip)
     int SCIPgetNContVars(SCIP* scip)
     int SCIPgetNFixedVars(SCIP* scip)
-    
+
     # SCIP_DOMCHG Methods
     int SCIPdomchgGetNBoundchgs(SCIP_DOMCHG* domchg)
     SCIP_BOUNDCHG* SCIPdomchgGetBoundchg(SCIP_DOMCHG* domchg, int pos)
@@ -670,7 +673,7 @@ cdef extern from "scip/scip.h":
     int SCIPgetNNodesLeft(SCIP* scip)
     int SCIPgetCutoffdepth(SCIP* scip)
     SCIP_Longint SCIPgetNTotalNodes	(SCIP* scip)
-    
+
     # Row Methods
     SCIP_RETCODE SCIPcreateRow(SCIP* scip, SCIP_ROW** row, const char* name, int len, SCIP_COL** cols, SCIP_Real* vals,
                                SCIP_Real lhs, SCIP_Real rhs, SCIP_Bool local, SCIP_Bool modifiable, SCIP_Bool removable)
@@ -941,7 +944,7 @@ cdef extern from "scip/scip.h":
 		                                    SCIP_Bool  	  executebranching,
 		                                    SCIP_RESULT*  result)
     SCIP_BRANCHRULE* SCIPfindBranchrule(SCIP*        scip,
-                                        const char*  name)   
+                                        const char*  name)
     SCIP_Real SCIPgetBranchingPoint(SCIP* scip, SCIP_VAR* var, SCIP_Real suggestion)
 
     # Numerical Methods
@@ -1425,7 +1428,7 @@ cdef extern from "scip/def.h":
 cdef extern from "scip/struct_branch.h":
     cdef struct SCIP_Branchrule:
         pass
- 
+
 cdef extern from "scip/type_history.h":
     ctypedef struct SCIP_HISTORY:
         SCIP_Real 	pscostcount [2]
@@ -1444,7 +1447,7 @@ cdef extern from "scip/type_history.h":
         SCIP_BRANCHDIR_UPWARDS   = 1
         SCIP_BRANCHDIR_FIXED     = 2
         SCIP_BRANCHDIR_AUTO      = 3
-        
+
 cdef extern from "scip/struct_stat.h":
     ctypedef struct SCIP_STAT:
         SCIP_HISTORY * 	glbhistory
@@ -1488,14 +1491,14 @@ cdef extern from "scip/struct_stat.h":
 cdef extern from "scip/type_misc.h":
     # ctypedef struct SCIP_REGRESSION:
     #     SCIP_REGRESSION * scipregression
-    
+
     ctypedef enum SCIP_CONFIDENCELEVEL:
         SCIP_CONFIDENCELEVEL_MIN        = 0
         SCIP_CONFIDENCELEVEL_LOW        = 1
         SCIP_CONFIDENCELEVEL_MEDIUM     = 2
         SCIP_CONFIDENCELEVEL_HIGH       = 3
         SCIP_CONFIDENCELEVEL_MAX        = 4
-    
+
 cdef extern from "math.h":
     cpdef double log(double x)
     cpdef double exp(double x)
