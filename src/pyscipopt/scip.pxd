@@ -305,7 +305,7 @@ cdef extern from "scip/scip.h":
     ctypedef struct SCIP_NODE:
         SCIP_Real lowerbound
         int depth
-        # TODO: add here parent #iinf? 
+        # TODO: add here parent #iinf?
 
 
     ctypedef struct SCIP_NODESEL:
@@ -672,7 +672,9 @@ cdef extern from "scip/scip.h":
     int SCIPgetNLeaves(SCIP* scip)
     int SCIPgetNNodesLeft(SCIP* scip)
     int SCIPgetCutoffdepth(SCIP* scip)
-    SCIP_Longint SCIPgetNTotalNodes	(SCIP* scip)
+    SCIP_Longint SCIPgetNTotalNodes(SCIP* scip)
+    SCIP_NODE* SCIPgetRootNode(SCIP* scip)
+    SCIP_NODE* SCIPgetFocusNode(SCIP* scip)
 
     # Row Methods
     SCIP_RETCODE SCIPcreateRow(SCIP* scip, SCIP_ROW** row, const char* name, int len, SCIP_COL** cols, SCIP_Real* vals,

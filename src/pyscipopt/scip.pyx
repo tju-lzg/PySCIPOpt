@@ -3141,8 +3141,13 @@ cdef class Model:
         domchg = SCIPnodeGetDomchg(node)
         nboundchgs = SCIPdomchgGetNBoundchgs(domchg)
 
+        if node == SCIPgetRootNode(self._scip):
+            isRoot = True
+        else:
+            isRoot = False
+
         # depth and position
-        if SCIPgetMaxDepth(self._scip) == 0:  # root case node
+        if isRoot:
             node_state.extend([0]*3)
             # node_state.extend([0]*6)
         else:
@@ -3181,6 +3186,61 @@ cdef class Model:
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
+    def getNodeStateMat(self, node_dim):
+        """Get Node state representation.
+        -------
+        :param node_dim: dimensionality of node state representation.
+        """
+        cdef np.ndarray[np.float_t, ndim=1] node_state = np.empty(node_dim, dtype=np.float)
+        cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
+        domchg = SCIPnodeGetDomchg(node)
+        nboundchgs = SCIPdomchgGetNBoundchgs(domchg)
+
+        if node == SCIPgetRootNode(self._scip):
+            isRoot = True
+        else:
+            isRoot = False
+
+        # depth and position
+        if isRoot:
+            node_state[0:3] = 0.
+            # node_state.extend([0]*6)
+        else:
+            node_state[0] = float(SCIPnodeGetDepth(node)) / SCIPgetMaxDepth(self._scip)
+            node_state[1] = float(SCIPgetPlungeDepth(self._scip)) / SCIPnodeGetDepth(node)
+            # node_state.append(float(SCIPgetNBacktracks(self._scip)) / SCIPnodeGetDepth(node))
+            # node_state.append(float(SCIPgetPlungeDepth(self._scip)) / SCIPgetMaxDepth(self._scip))
+            # node_state.append(float(SCIPgetNBacktracks(self._scip)) / SCIPgetMaxDepth(self._scip))
+            if self._scip.stat.firstprimaldepth < SCIPgetMaxDepth(self._scip):
+                node_state[2] = float(self._scip.stat.firstprimaldepth) / SCIPnodeGetDepth(node)
+            else:
+                node_state[2]= 0.
+
+        # objective and bounds
+        if SCIPgetLPObjval(self._scip) != 0:
+            node_state[3] = SCIPgetLowerbound(self._scip) / SCIPgetLPObjval(self._scip)
+            node_state[4] = SCIPgetLowerboundRoot(self._scip) / SCIPgetLPObjval(self._scip)
+        else:
+            node_state[3:5] = 0.
+        if SCIPisInfinity(self._scip, SCIPgetUpperbound(self._scip)) or SCIPgetUpperbound(self._scip) == 0:
+            node_state[5] = 0.
+        # elif SCIPgetUpperbound(self._scip) == 0:
+        #     node_state.append(0)
+        else:
+            node_state[5] = SCIPgetLPObjval(self._scip) / SCIPgetUpperbound(self._scip)
+
+        # candidate set and variables
+        node_state[6] = float(len(self.getLPBranchCands())) / self.getNDiscreteVars()
+        node_state[7] = float(SCIPgetNFixedVars(self._scip)) / SCIPgetNVars(self._scip)
+        node_state[8] = float(nboundchgs) / SCIPgetNVars(self._scip)
+
+        # active constraints
+        # node_state.append(SCIPgetNActiveConss(self._scip) / SCIPgetNConss(self._scip))
+
+        return node_state
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     def getMIPState(self):
         """Get MIP state representation.
         """
@@ -3194,7 +3254,12 @@ cdef class Model:
         cdef int nsiblings
         PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
 
-        if SCIPgetMaxDepth(self._scip) == 0:  # root node case
+        if SCIPgetCurrentNode(self._scip) == SCIPgetRootNode(self._scip):
+            isRoot = True
+        else:
+            isRoot = False
+
+        if isRoot:
             # nodes and leaves
             mip_state.extend([0]*7)
             # depth and backtracks
@@ -3212,8 +3277,8 @@ cdef class Model:
                 mip_state.extend([0]*3)
             else:
                 mip_state.append(float(SCIPgetNObjlimLeaves(self._scip)) / all_leaves)
-                mip_state.append(float(SCIPgetNFeasibleLeaves(self._scip)) / all_leaves)
                 mip_state.append(float(SCIPgetNInfeasibleLeaves(self._scip)) / all_leaves)
+                mip_state.append(float(SCIPgetNFeasibleLeaves(self._scip)) / all_leaves)
             mip_state.append(float(SCIPgetNNodesLeft(self._scip)) / SCIPgetNNodes(self._scip))
             mip_state.append(float(all_leaves) / SCIPgetNNodes(self._scip))
             mip_state.append(float(self._scip.stat.ninternalnodes) / SCIPgetNNodes(self._scip))
@@ -3240,7 +3305,6 @@ cdef class Model:
                 mip_state.extend([0]*4)
             else:
                 mip_state.append(np.log(self._scip.stat.primaldualintegral))
-                print("cy: {}".format(self._scip.stat.primaldualintegral))
                 mip_state.extend([0]*3)
         else:
             if self._scip.stat.primaldualintegral == 0:
@@ -3270,7 +3334,7 @@ cdef class Model:
                 mip_state.append(SCIPgetUpperbound(self._scip) / SCIPgetLowerbound(self._scip))
             else:
                 mip_state.append(0)
-        if SCIPgetMaxDepth(self._scip) == 0:
+        if isRoot:
             mip_state.append(0)
             mip_state.append(SCIPisPrimalboundSol(self._scip))
             mip_state.append(0)
@@ -3329,7 +3393,178 @@ cdef class Model:
 
         return mip_state
 
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def getMIPStateMat(self, mip_dim):
+        """Get MIP state representation.
+        -------
+        :param mip_dim: dimensionality of MIP state representation.
+        """
 
+        cdef np.ndarray[np.float_t, ndim=1] mip_state = np.empty(mip_dim, dtype=np.float)
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+
+        if SCIPgetCurrentNode(self._scip) == SCIPgetRootNode(self._scip):
+            isRoot = True
+        else:
+            isRoot = False
+
+        if isRoot:
+            # nodes and leaves
+            mip_state[:7] = 0
+            # depth and backtracks
+            mip_state[7:11] = 0
+            # LP iterations
+            mip_state[11:14] = 0
+            if SCIPgetNLPs(self._scip) != 0:
+                mip_state[14] = float(SCIPgetNNodeLPs(self._scip)) / SCIPgetNLPs(self._scip)
+            else:
+                mip_state[14] = 0
+        else:
+            # nodes and leaves
+            all_leaves = SCIPgetNObjlimLeaves(self._scip) + SCIPgetNFeasibleLeaves(self._scip) + SCIPgetNInfeasibleLeaves(self._scip)
+            if all_leaves == 0:
+                mip_state[:3] = 0
+            else:
+                mip_state[0] = float(SCIPgetNObjlimLeaves(self._scip)) / all_leaves
+                mip_state[1] = float(SCIPgetNInfeasibleLeaves(self._scip)) / all_leaves
+                mip_state[2] = float(SCIPgetNFeasibleLeaves(self._scip)) / all_leaves
+            mip_state[3] = float(SCIPgetNNodesLeft(self._scip)) / SCIPgetNNodes(self._scip)
+            mip_state[4] = float(all_leaves) / SCIPgetNNodes(self._scip)
+            mip_state[5] = float(self._scip.stat.ninternalnodes) / SCIPgetNNodes(self._scip)
+            mip_state[6] = float(SCIPgetNNodes(self._scip)) / self._scip.stat.ncreatednodes
+
+            # depth and backtracks
+            mip_state[7] = SCIPgetEffectiveRootDepth(self._scip)
+            if self._scip.stat.firstprimaldepth < SCIPgetMaxDepth(self._scip):
+                mip_state[8] = float(self._scip.stat.firstprimaldepth) / SCIPgetMaxDepth(self._scip)
+            else:
+                mip_state[8] = 0
+            mip_state[9] = float(self._scip.stat.nactivatednodes) / SCIPgetNNodes(self._scip)
+            mip_state[10] = float(self._scip.stat.ndeactivatednodes) / SCIPgetNNodes(self._scip)
+
+            # LP iterations
+            mip_state[11] = np.log(float(SCIPgetNLPIterations(self._scip)) / SCIPgetNNodes(self._scip))
+            mip_state[12] = np.log(float(SCIPgetNLPs(self._scip)) / SCIPgetNNodes(self._scip))
+            mip_state[13] = float(SCIPgetNNodes(self._scip)) / SCIPgetNLPs(self._scip)
+            mip_state[14] = float(SCIPgetNNodeLPs(self._scip)) / SCIPgetNLPs(self._scip)
+
+        # gap
+        if SCIPisInfinity(self._scip, SCIPgetGap(self._scip)) or SCIPisInfinity(self._scip, self._scip.stat.lastsolgap) or SCIPisInfinity(self._scip, self._scip.stat.firstsolgap):
+            if self._scip.stat.primaldualintegral == 0:
+                mip_state[15:19] = 0
+            else:
+                mip_state[15] = np.log(self._scip.stat.primaldualintegral)
+                mip_state[16:19] = 0
+        else:
+            if self._scip.stat.primaldualintegral == 0:
+                mip_state[15] = 0
+                mip_state[16] = SCIPgetGap(self._scip) / self._scip.stat.lastsolgap
+                mip_state[17] = SCIPgetGap(self._scip) / self._scip.stat.firstsolgap
+                mip_state[18] = self._scip.stat.lastsolgap / self._scip.stat.firstsolgap
+            else:
+                mip_state[15] = np.log(self._scip.stat.primaldualintegral)
+                mip_state[16] = SCIPgetGap(self._scip) / self._scip.stat.lastsolgap
+                mip_state[17] = SCIPgetGap(self._scip) / self._scip.stat.firstsolgap
+                mip_state[18] = self._scip.stat.lastsolgap / self._scip.stat.firstsolgap
+
+        # bounds and solutions
+        if SCIPgetLowerbound(self._scip) != 0:
+            mip_state[19] = SCIPgetLowerboundRoot(self._scip) / SCIPgetLowerbound(self._scip)
+        else:
+            mip_state[19] = 0
+        if SCIPgetAvgLowerbound(self._scip) != 0:
+            mip_state[20] = SCIPgetLowerboundRoot(self._scip) / SCIPgetAvgLowerbound(self._scip)
+        else:
+            mip_state[20] = 0
+        if SCIPisInfinity(self._scip, SCIPgetUpperbound(self._scip)):
+            mip_state[21] = 0
+        else:
+            if SCIPgetLowerbound(self._scip) != 0:
+                mip_state[21] = SCIPgetUpperbound(self._scip) / SCIPgetLowerbound(self._scip)
+            else:
+                mip_state[21] = 0
+        if isRoot:
+            mip_state[22] = 0
+            mip_state[23] = SCIPisPrimalboundSol(self._scip)
+            mip_state[24] = 0
+        else:
+            mip_state[22] = float(self._scip.stat.nnodesbeforefirst) / SCIPgetNNodes(self._scip)
+            mip_state[23] = float(SCIPisPrimalboundSol(self._scip))
+            mip_state[24] = float(SCIPgetNBestSolsFound(self._scip)) / SCIPgetNNodes(self._scip)
+
+        # cutoff
+        mip_state[25] = SCIPgetAvgCutoffsCurrentRun(self._scip, SCIP_BRANCHDIR_UPWARDS)
+        mip_state[26] = SCIPgetAvgCutoffsCurrentRun(self._scip, SCIP_BRANCHDIR_DOWNWARDS)
+        mip_state[27] = SCIPgetAvgCutoffScoreCurrentRun(self._scip)
+
+        # open nodes
+        cdef np.ndarray[np.float_t, ndim=1] open_lowerbounds = np.empty([nleaves + nchildren + nsiblings], dtype=np.float)
+        cdef np.ndarray[np.float_t, ndim=1] open_depths = np.empty([nleaves + nchildren + nsiblings], dtype=np.float)
+        # open_lowerbounds = np.empty([nleaves + nchildren + nsiblings], dtype = np.float)
+        # cdef float[::1] open_lowerbounds_view = open_lowerbounds  # C-view contiguous
+        # open_depths = np.empty([nleaves + nchildren + nsiblings], dtype = np.float)
+        # cdef float[::1] open_depths_view = open_depths  # C-view contiguous
+        if nleaves + nchildren + nsiblings != 0:
+            for i in range(nleaves):
+                open_lowerbounds[i] = leaves[i].lowerbound
+                open_depths[i] = leaves[i].depth
+            for i in range(nchildren):
+                open_lowerbounds[nleaves+i] = children[i].lowerbound
+                open_depths[nleaves+i] = children[i].depth
+            for i in range(nsiblings):
+                open_lowerbounds[nleaves+nchildren+i] = siblings[i].lowerbound
+                open_depths[nleaves+nchildren+i] = siblings[i].depth
+
+            if SCIPgetAvgLowerbound(self._scip) != 0:
+                mip_state[28] = np.mean(open_lowerbounds) / SCIPgetAvgLowerbound(self._scip)
+            else:
+                mip_state[28] = 0
+            mip_state[29] = float(len(np.argwhere(open_lowerbounds == np.min(open_lowerbounds)))) / len(open_lowerbounds)
+            mip_state[30] = float(len(np.argwhere(open_lowerbounds == np.max(open_lowerbounds)))) / len(open_lowerbounds)
+            if SCIPisInfinity(self._scip, SCIPgetUpperbound(self._scip)) or SCIPgetUpperbound(self._scip) == 0:
+                mip_state[31:33] = 0
+            else:
+                mip_state[31] = np.min(open_lowerbounds) / SCIPgetUpperbound(self._scip)
+                mip_state[32] = np.max(open_lowerbounds) / SCIPgetUpperbound(self._scip)
+            if np.max(open_lowerbounds) != 0:
+                mip_state[33] = np.min(open_lowerbounds) / np.max(open_lowerbounds)
+            else:
+                mip_state[33] = 0
+            mip_state[34] = len(np.argwhere(open_lowerbounds < SCIPgetUpperbound(self._scip))) / len(open_lowerbounds)
+            # TODO: correct with normalized value (e.g. max depth)
+            mip_state[35] = np.mean(open_depths)
+            # TODO: add percentiles as in rl2branch (! float operations)
+            # percentiles = (10, 25, 50, 75, 90)
+            # qs = np.percentile(open_lowerbounds, percentiles, overwrite_input=True, interpolation='linear')
+            # mip_state.extend(qs)
+        else:
+            mip_state[28:] = 0
+            # mip_state.extend([0]*9)
+
+        return mip_state
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def getCandsState(self):
+        """Get candidate variables state representation.
+        """
+        # get candidate variables
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
+        cdef SCIP_STAT* stat = self._scip.stat
+        cdef int nlpcands
+        cdef int npriolpcands
+        cdef int nfracimplvars
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
+        return
 
 
     #############################
@@ -3530,6 +3765,7 @@ cdef class Model:
             'nconss': SCIPgetNConss(self._scip),
         }
 
+    # TODO: remove
     def getMIPRepr(self):
         """ Inspired from getMILPInfos.
 	    Extract and return MIP representation as dictionary.
