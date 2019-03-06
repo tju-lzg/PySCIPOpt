@@ -3130,8 +3130,6 @@ cdef class Model:
         """
         return SCIPgetNBinVars(self._scip) + SCIPgetNIntVars(self._scip)
 
-    #       state methods        #
-
     def getNodeState(self):
         """Get Node state representation.
         """
@@ -3552,8 +3550,10 @@ cdef class Model:
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def getCandsState(self):
+    def getCandsState(self, var_dim):
         """Get candidate variables state representation.
+        -------
+        :param var_dim: dimensionality of candidate variables state representation.
         """
         # get candidate variables
         cdef SCIP_VAR** lpcands
@@ -3564,7 +3564,61 @@ cdef class Model:
         cdef int npriolpcands
         cdef int nfracimplvars
         PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
-        return
+
+        cands_state_mat = np.empty((nlpcands, var_dim), dtype=np.float)
+        # cdef np.ndarray cands_state_mat = np.empty((nlpcands, var_dim), dtype=np.float)
+        for i in range(nlpcands):
+            # general solution
+            cands_state_mat[i][0] = lpcandsfrac[i]
+            cands_state_mat[i][1] = SCIPvarGetObjLP(lpcands[i])
+            cands_state_mat[i][2] = SCIPgetVarRedcost(self._scip, lpcands[i])
+            cands_state_mat[i][3] = SCIPvarGetLPSol(lpcands[i])
+            cands_state_mat[i][4] = SCIPvarGetAvgSol(lpcands[i])
+            # pc stats
+            cands_state_mat[i][5] = SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i])
+            cands_state_mat[i][6] = SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i])
+            cands_state_mat[i][7] = SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_state_mat[i][8] = SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_state_mat[i][9] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_state_mat[i][10] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_state_mat[i][11] = SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1)
+            cands_state_mat[i][12] = SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1)
+            cands_state_mat[i][13] = SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM)
+            cands_state_mat[i][14] = SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM)
+            # branching stats
+            cands_state_mat[i][15] = SCIPvarGetNUses(lpcands[i])
+            cands_state_mat[i][16] = SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_state_mat[i][17] = SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_state_mat[i][18] = SCIPvarGetLastBdchgDepth(lpcands[i])
+            cands_state_mat[i][19] = SCIPgetBranchingPoint(self._scip, lpcands[i], SCIP_INVALID)
+            # bounds comparison
+            cands_state_mat[i][20] = np.abs(SCIPvarGetUbGlobal(lpcands[i]) - SCIPvarGetLbGlobal(lpcands[i]))
+            cands_state_mat[i][21] = np.abs(SCIPvarGetUbLocal(lpcands[i]) - SCIPvarGetLbLocal(lpcands[i]))
+            cands_state_mat[i][22] = np.abs(SCIPvarGetUbGlobal(lpcands[i]) - SCIPvarGetUbLocal(lpcands[i]))
+            cands_state_mat[i][23] = np.abs(SCIPvarGetLbGlobal(lpcands[i]) - SCIPvarGetLbLocal(lpcands[i]))
+            cands_state_mat[i][24] = SCIPvarGetNVubs(lpcands[i])
+            cands_state_mat[i][25] = SCIPvarGetNVlbs(lpcands[i])
+            cands_state_mat[i][26] = SCIPvarGetNBdchgInfosUb(lpcands[i])
+            cands_state_mat[i][27] = SCIPvarGetNBdchgInfosLb(lpcands[i])
+            # implications, cliques, conflicts, inference, cutoff
+            cands_state_mat[i][28] = SCIPvarGetNImpls(lpcands[i], 0)
+            cands_state_mat[i][29] = SCIPvarGetNImpls(lpcands[i], 1)
+            cands_state_mat[i][30] = SCIPvarGetNCliques(lpcands[i], 0)
+            cands_state_mat[i][31] = SCIPvarGetNCliques(lpcands[i], 1)
+            cands_state_mat[i][32] = SCIPgetVarConflictScoreCurrentRun(self._scip, lpcands[i])
+            cands_state_mat[i][33] = SCIPgetVarConflictlengthScoreCurrentRun(self._scip, lpcands[i])
+            cands_state_mat[i][34] = SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_state_mat[i][35] = SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_state_mat[i][36] = SCIPgetVarVSIDSCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_state_mat[i][37] = SCIPgetVarVSIDSCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_state_mat[i][38] = SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_state_mat[i][39] = SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_state_mat[i][40] = SCIPgetVarAvgInferenceScoreCurrentRun(self._scip, lpcands[i])
+            cands_state_mat[i][41] = SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_state_mat[i][42] = SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_state_mat[i][43] = SCIPgetVarAvgCutoffScoreCurrentRun(self._scip, lpcands[i])
+
+        return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)], cands_state_mat
 
 
     #############################
