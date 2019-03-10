@@ -3776,7 +3776,7 @@ cdef class Model:
         for i in range(nrows):
 
             # assert rows can not be altered between updates
-            assert not (SCIProwIsLocal(rows[i]) or SCIProwIsModifiable(rows[i]) or SCIProwIsRemovable(rows[i]))
+            # assert not (SCIProwIsLocal(rows[i]) or SCIProwIsModifiable(rows[i]) or SCIProwIsRemovable(rows[i]))
 
             # lhs <= activity + cst <= rhs
             lhs = SCIProwGetLhs(rows[i])
