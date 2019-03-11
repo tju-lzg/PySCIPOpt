@@ -3622,6 +3622,7 @@ cdef class Model:
             }
         }
 
+
     def getState(self, prev_state = None):
         cdef SCIP* scip = self._scip
         cdef int i, j, k, col_i
@@ -3734,6 +3735,15 @@ cdef class Model:
         cdef int nrows = SCIPgetNLPRows(scip)
         cdef SCIP_ROW** rows = SCIPgetLPRows(scip)
 
+        nb_fixed_rows = 0
+        for i in range(nrows):
+            if (SCIProwIsLocal(rows[i]) or SCIProwIsModifiable(rows[i]) or SCIProwIsRemovable(rows[i])
+                or (SCIProwGetLhs(rows[i]) == SCIProwGetRhs(rows[i]))):
+                break
+            else:
+                nb_fixed_rows += 1
+        nrows = nb_fixed_rows
+
         cdef np.ndarray[np.float32_t, ndim=1] row_lhss
         cdef np.ndarray[np.float32_t, ndim=1] row_rhss
         cdef np.ndarray[np.int32_t,   ndim=1] row_nnzrs
@@ -3747,17 +3757,17 @@ cdef class Model:
         cdef np.ndarray[np.int32_t,   ndim=1] row_is_at_rhs
 
         if not update:
-            row_lhss       = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_rhss       = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_nnzrs      = np.empty(shape=(nrows, ), dtype=np.int32)
-            row_dualsols   = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_basestats  = np.empty(shape=(nrows, ), dtype=np.int32)
-            row_ages       = np.empty(shape=(nrows, ), dtype=np.int32)
-            row_activities = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_objcossims = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_norms      = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_is_at_lhs  = np.empty(shape=(nrows, ), dtype=np.int32)
-            row_is_at_rhs  = np.empty(shape=(nrows, ), dtype=np.int32)
+            row_lhss       = np.zeros(shape=(nrows, ), dtype=np.float32)
+            row_rhss       = np.zeros(shape=(nrows, ), dtype=np.float32)
+            row_nnzrs      = np.zeros(shape=(nrows, ), dtype=np.int32)
+            row_dualsols   = np.zeros(shape=(nrows, ), dtype=np.float32)
+            row_basestats  = np.zeros(shape=(nrows, ), dtype=np.int32)
+            row_ages       = np.zeros(shape=(nrows, ), dtype=np.int32)
+            row_activities = np.zeros(shape=(nrows, ), dtype=np.float32)
+            row_objcossims = np.zeros(shape=(nrows, ), dtype=np.float32)
+            row_norms      = np.zeros(shape=(nrows, ), dtype=np.float32)
+            row_is_at_lhs  = np.zeros(shape=(nrows, ), dtype=np.int32)
+            row_is_at_rhs  = np.zeros(shape=(nrows, ), dtype=np.int32)
         else:
             row_lhss       = prev_state['row']['lhss']
             row_rhss       = prev_state['row']['rhss']
@@ -3773,10 +3783,11 @@ cdef class Model:
 
         cdef int nnzrs = 0
         cdef SCIP_Real activity, lhs, rhs, cst
+
         for i in range(nrows):
 
             # assert rows can not be altered between updates
-            # assert not (SCIProwIsLocal(rows[i]) or SCIProwIsModifiable(rows[i]) or SCIProwIsRemovable(rows[i]))
+            assert not (SCIProwIsLocal(rows[i]) or SCIProwIsModifiable(rows[i]) or SCIProwIsRemovable(rows[i]))
 
             # lhs <= activity + cst <= rhs
             lhs = SCIProwGetLhs(rows[i])
@@ -3846,7 +3857,6 @@ cdef class Model:
         if not update:
             j = 0
             for i in range(nrows):
-
                 # coefficient indexes and values
                 row_cols = SCIProwGetCols(rows[i])
                 row_vals = SCIProwGetVals(rows[i])
