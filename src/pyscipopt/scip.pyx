@@ -7,6 +7,7 @@ import numpy as np
 
 cimport cython
 cimport numpy as np
+from scipy.stats import gmean
 from cpython cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
 from libc.stdio cimport fdopen
@@ -2999,10 +3000,6 @@ cdef class Model:
     #       rlbb methods        #
     #############################
 
-    # def getNTotalNodes(self):
-    #     """"""
-    #     return SCIPgetNTotalNodes(self._scip)
-
     def getNLPIterations(self):
         """Get number of LP iterations executed so far.
         """
@@ -3032,6 +3029,11 @@ cdef class Model:
     def getRootNode(self):
         """Retrieve root node."""
         return Node.create(SCIPgetRootNode(self._scip))
+
+    def getLowerboundRoot(self):
+        """Return the lower bound at the root node.
+        """
+        return SCIPgetLowerboundRoot(self._scip)
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -3315,7 +3317,65 @@ cdef class Model:
 
         return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)], cands_state_mat
 
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def getOpenLBImprovement(self, eps=1e-3):
+        """Get the average lower bound improvement across the open nodes, with respect to the root lower bound.
+        Assumes the lower bound at the root is *not* 0.
+        -------
+        :param eps: tolerance parameter to compare bounds.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
 
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+
+        if nleaves + nchildren + nsiblings == 0:
+            return 0
+
+        sumlog = 0
+        lb_root = SCIPgetLowerboundRoot(self._scip)
+        for j in range(nleaves):
+            sumlog += np.log(leaves[j].lowerbound - lb_root) if leaves[j].lowerbound > lb_root + eps else np.log(eps)
+        for j in range(nchildren):
+            sumlog += np.log(children[j].lowerbound - lb_root) if children[j].lowerbound > lb_root + eps else np.log(eps)
+        for j in range(nsiblings):
+            sumlog += np.log(siblings[j].lowerbound - lb_root) if siblings[j].lowerbound > lb_root + eps else np.log(eps)
+        return np.exp(sumlog / (nleaves + nchildren + nsiblings)) / lb_root
+
+    def getOpenDepthsAvg(self):
+        """Returns the sum of depths across the list of open nodes.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+
+        if nleaves + nchildren + nsiblings == 0:
+            return 0
+
+        sumdepths = 0
+        for i in range(nleaves):
+            sumdepths += leaves[i].depth
+        for i in range(nchildren):
+            sumdepths += children[i].depth
+        for i in range(nsiblings):
+            sumdepths += siblings[i].depth
+        return sumdepths / (nleaves + nchildren + nsiblings)
+
+
+    #############################
+
+    #############################
+    #       TODO: REMOVE        #
     #############################
 
     # TODO: remove
@@ -3479,7 +3539,7 @@ cdef class Model:
 
         return lower_bounds_open_nodes, depth_open_nodes, mip_dict
 
-
+    # TODO: remove
     def getGridRepr(self):
         """ Inspired from getMILPInfos.
         Extract and return candidate variables (grid) representation as dictionary.
@@ -3555,6 +3615,52 @@ cdef class Model:
                              }
         return cands_dict
 
+    # TODO: remove
+    def getLowerboundOpenNodes(self):
+        """Return the list of lower bounds of all open nodes.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+
+        lower_bounds_open_nodes = []
+        for i in range(nleaves):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(leaves[i]))
+        for i in range(nchildren):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(children[i]))
+        for i in range(nsiblings):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i]))
+        return lower_bounds_open_nodes
+
+    # TODO: remove
+    def getDepthOpenNodes(self):
+        """Return the list of depth of all open nodes.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+
+        depth_open_nodes = []
+        for i in range(nleaves):
+            depth_open_nodes.append(SCIPnodeGetDepth(leaves[i]))
+        for i in range(nchildren):
+            depth_open_nodes.append(SCIPnodeGetDepth(children[i]))
+        for i in range(nsiblings):
+            depth_open_nodes.append(SCIPnodeGetDepth(siblings[i]))
+        return depth_open_nodes
+
+    #############################
+
     # todo: improve tracking of branching vars wrt nodes and step
     def getAncestorBranchingPath(self):
         """Get set of variable branchings performed in all ancestor nodes."""
@@ -3580,87 +3686,7 @@ cdef class Model:
 
         return varslist_pos, nbranchvars, branchvarssize, nodeswitches, nnodes, nodeswitchsize
 
-    def getLowerboundRoot(self):
-        """Return the lower bound at the root node.
-        """
-        return SCIPgetLowerboundRoot(self._scip)
 
-    def getLowerboundOpenNodes(self):
-        """Return the list of lower bounds of all open nodes.
-        """
-        cdef SCIP_NODE** leaves
-        cdef SCIP_NODE** children
-        cdef SCIP_NODE** siblings
-        cdef int nleaves
-        cdef int nchildren
-        cdef int nsiblings
-
-        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
-
-        lower_bounds_open_nodes = []
-        for i in range(nleaves):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(leaves[i]))
-        for i in range(nchildren):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(children[i]))
-        for i in range(nsiblings):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i]))
-        return lower_bounds_open_nodes
-
-    def getOpenLowerBoundImprovement(self, eps=1e-3):
-        """Get the average lower bound improvement across the open nodes, with respect to the root lower bound.
-        Assumes the lower bound at the root is not 0.
-        """
-        cdef SCIP_NODE** leaves
-        cdef SCIP_NODE** children
-        cdef SCIP_NODE** siblings
-        cdef int nleaves
-        cdef int nchildren
-        cdef int nsiblings
-
-        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
-
-        lower_bounds_open_nodes = []
-        for i in range(nleaves):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(leaves[i]))
-        for i in range(nchildren):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(children[i]))
-        for i in range(nsiblings):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i]))
-
-        lb_root = SCIPgetLowerboundRoot(self._scip)
-        assert lb_root != 0
-
-        if len(lower_bounds_open_nodes) == 0:
-            return 0
-        else:
-            sumlog = 0
-            for lb in lower_bounds_open_nodes:
-                if lb > lb_root + eps:
-                    sumlog += log(lb - lb_root)
-                else:
-                    sumlog += log(eps)
-            return exp(sumlog / len(lower_bounds_open_nodes))
-
-    def getDepthOpenNodes(self):
-        """Return the list of depth of all open nodes.
-        """
-        cdef SCIP_NODE** leaves
-        cdef SCIP_NODE** children
-        cdef SCIP_NODE** siblings
-        cdef int nleaves
-        cdef int nchildren
-        cdef int nsiblings
-
-        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
-
-        depth_open_nodes = []
-        for i in range(nleaves):
-            depth_open_nodes.append(SCIPnodeGetDepth(leaves[i]))
-        for i in range(nchildren):
-            depth_open_nodes.append(SCIPnodeGetDepth(children[i]))
-        for i in range(nsiblings):
-            depth_open_nodes.append(SCIPnodeGetDepth(siblings[i]))
-        return depth_open_nodes
 
     def getNumLPBranchCands(self):
         """Get the number of branching candidates from the LP relaxation (to be used for open nodes?).
