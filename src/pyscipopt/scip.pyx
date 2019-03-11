@@ -2994,111 +2994,6 @@ cdef class Model:
 
         free(_coeffs)
 
-    def getMILPInfos(self):
-        """Inspired from SCIPlpWriteMip
-        http://scip.zib.de/doc/html/lp_8c.php#ad67e42485879a840f72669a2e3ee4514
-        """
-        cdef int i, j, k
-
-        obj_val = SCIPgetLPObjval(self._scip)
-
-        # COLUMNS
-        cdef SCIP_COL** cols = SCIPgetLPCols(self._scip)
-        cdef int ncols = SCIPgetNLPCols(self._scip)
-
-        col_vals = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
-        col_types = np.empty(shape=(ncols, ), dtype=np.dtype('int32'))
-        col_coefs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
-        col_ubs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
-        col_lbs = np.empty(shape=(ncols, ), dtype=np.dtype('float'))
-        cdef SCIP_Real [:] col_vals_view = col_vals
-        cdef int [:] col_types_view = col_types
-        cdef SCIP_Real [:] col_coefs_view = col_coefs
-        cdef SCIP_Real [:] col_ubs_view = col_ubs
-        cdef SCIP_Real [:] col_lbs_view = col_lbs
-        cdef int col_i
-
-        for i in range(ncols):
-            col_i = SCIPcolGetLPPos(cols[i])
-            col_types_view[col_i] = SCIPvarGetType(SCIPcolGetVar(cols[i]))
-            col_vals[col_i] = SCIPcolGetPrimsol(cols[i])
-            col_coefs_view[col_i] = SCIPcolGetObj(cols[i])
-
-            col_lbs_view[col_i] = SCIPcolGetLb(cols[i])
-            if SCIPisInfinity(self._scip, -col_lbs_view[col_i]):
-                col_lbs_view[col_i] = NAN
-
-            col_ubs_view[col_i] = SCIPcolGetUb(cols[i])
-            if SCIPisInfinity(self._scip, col_ubs_view[col_i]):
-                col_ubs_view[col_i] = NAN
-
-        # ROWS
-        cdef SCIP_ROW** rows = SCIPgetLPRows(self._scip)
-        cdef int nrows = SCIPgetNLPRows(self._scip)
-
-        cdef int nnzrs = 0
-        for i in range(nrows):
-            nnzrs += SCIProwGetNLPNonz(rows[i])
-
-        row_nnzrs = np.empty(shape=(nrows, ), dtype=np.dtype('int32'))
-        row_coefidxs = np.empty(shape=(nnzrs, ), dtype=np.dtype('int32'))
-        row_coefvals = np.empty(shape=(nnzrs, ), dtype=np.dtype('float'))
-        row_lhss = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
-        row_rhss = np.empty(shape=(nrows, ), dtype=np.dtype('float'))
-        cdef int [:] row_nnzrs_view = row_nnzrs
-        cdef int [:] row_coefidxs_view = row_coefidxs
-        cdef SCIP_Real [:] row_coefvals_view = row_coefvals
-        cdef SCIP_Real [:] row_lhss_view = row_lhss
-        cdef SCIP_Real [:] row_rhss_view = row_rhss
-        cdef SCIP_COL ** row_cols
-        cdef SCIP_Real * row_vals
-
-        j = 0
-        for i in range(nrows):
-
-            # number of coefficients
-            row_nnzrs_view[i] = SCIProwGetNLPNonz(rows[i])
-
-            # coefficient indexes and values
-            row_cols = SCIProwGetCols(rows[i])
-            row_vals = SCIProwGetVals(rows[i])
-            for k in range(row_nnzrs_view[i]):
-                row_coefidxs_view[j+k] = SCIPcolGetLPPos(row_cols[k])
-                row_coefvals_view[j+k] = row_vals[k]
-
-            j += row_nnzrs_view[i]
-
-            # left-hand-side
-            row_lhss_view[i] = SCIProwGetLhs(rows[i])
-            if SCIPisInfinity(self._scip, REALABS(row_lhss_view[i])):
-                row_lhss_view[i] = NAN
-            else:
-                row_lhss_view[i] -= SCIProwGetConstant(rows[i])
-
-            # right-hand-side
-            row_rhss_view[i] = SCIProwGetRhs(rows[i])
-            if SCIPisInfinity(self._scip, REALABS(row_rhss_view[i])):
-                row_rhss_view[i] = NAN
-            else:
-                row_rhss_view[i] -= SCIProwGetConstant(rows[i])
-
-        return {
-            'lp_obj': obj_val,
-            'cols': {
-                'vals': col_vals,
-                'types': col_types,
-                'coefs': col_coefs,
-                'lbs': col_lbs,
-                'ubs': col_ubs,
-            },
-            'rows': {
-                'lhss': row_lhss,
-                'rhss': row_rhss,
-                'nnzrs': row_nnzrs,
-                'coefidxs': row_coefidxs,
-                'coefvals': row_coefvals,
-            }
-        }
 
     #############################
     #       rlbb methods        #
@@ -3130,6 +3025,14 @@ cdef class Model:
         """
         return SCIPgetNBinVars(self._scip) + SCIPgetNIntVars(self._scip)
 
+    def getFocusNode(self):
+        """Retrieve focus node."""
+        return Node.create(SCIPgetFocusNode(self._scip))
+
+    def getRootNode(self):
+        """Retrieve root node."""
+        return Node.create(SCIPgetRootNode(self._scip))
+
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def getNodeState(self, node_dim):
@@ -3137,7 +3040,6 @@ cdef class Model:
         -------
         :param node_dim: dimensionality of node state representation.
         """
-        # cdef np.ndarray[np.float_t, ndim=1] node_state = np.empty(node_dim, dtype=np.float)
         node_state = np.empty(node_dim, dtype=np.double)
         cdef double[::1] node_state_view = node_state  # C-view contiguous
 
@@ -3152,39 +3054,33 @@ cdef class Model:
 
         # depth and position
         if isRoot:
-            node_state_view[0:3] = 0.
-            # node_state.extend([0]*6)
+            node_state_view[0:6] = 0.
         else:
             node_state_view[0] = float(SCIPnodeGetDepth(node)) / SCIPgetMaxDepth(self._scip)
             node_state_view[1] = float(SCIPgetPlungeDepth(self._scip)) / SCIPnodeGetDepth(node)
-            # node_state.append(float(SCIPgetNBacktracks(self._scip)) / SCIPnodeGetDepth(node))
-            # node_state.append(float(SCIPgetPlungeDepth(self._scip)) / SCIPgetMaxDepth(self._scip))
-            # node_state.append(float(SCIPgetNBacktracks(self._scip)) / SCIPgetMaxDepth(self._scip))
+            node_state_view[2] = float(SCIPgetNBacktracks(self._scip)) / SCIPnodeGetDepth(node)
+            node_state_view[3] = float(SCIPgetPlungeDepth(self._scip)) / SCIPgetMaxDepth(self._scip)
+            node_state_view[4] = float(SCIPgetNBacktracks(self._scip)) / SCIPgetMaxDepth(self._scip)
             if self._scip.stat.firstprimaldepth < SCIPgetMaxDepth(self._scip):
-                node_state_view[2] = float(self._scip.stat.firstprimaldepth) / SCIPnodeGetDepth(node)
+                node_state_view[5] = float(self._scip.stat.firstprimaldepth) / SCIPnodeGetDepth(node)
             else:
-                node_state_view[2]= 0.
+                node_state_view[5]= 0.
 
         # objective and bounds
         if SCIPgetLPObjval(self._scip) != 0:
-            node_state_view[3] = SCIPgetLowerbound(self._scip) / SCIPgetLPObjval(self._scip)
-            node_state_view[4] = SCIPgetLowerboundRoot(self._scip) / SCIPgetLPObjval(self._scip)
+            node_state_view[6] = SCIPgetLowerbound(self._scip) / SCIPgetLPObjval(self._scip)
+            node_state_view[7] = SCIPgetLowerboundRoot(self._scip) / SCIPgetLPObjval(self._scip)
         else:
-            node_state_view[3:5] = 0.
+            node_state_view[6:8] = 0.
         if SCIPisInfinity(self._scip, SCIPgetUpperbound(self._scip)) or SCIPgetUpperbound(self._scip) == 0:
-            node_state_view[5] = 0.
-        # elif SCIPgetUpperbound(self._scip) == 0:
-        #     node_state.append(0)
+            node_state_view[8] = 0.
         else:
-            node_state_view[5] = SCIPgetLPObjval(self._scip) / SCIPgetUpperbound(self._scip)
+            node_state_view[8] = SCIPgetLPObjval(self._scip) / SCIPgetUpperbound(self._scip)
 
         # candidate set and variables
-        node_state_view[6] = float(len(self.getLPBranchCands())) / self.getNDiscreteVars()
-        node_state_view[7] = float(SCIPgetNFixedVars(self._scip)) / SCIPgetNVars(self._scip)
-        node_state_view[8] = float(nboundchgs) / SCIPgetNVars(self._scip)
-
-        # active constraints
-        # node_state.append(SCIPgetNActiveConss(self._scip) / SCIPgetNConss(self._scip))
+        node_state_view[9] = float(len(self.getLPBranchCands())) / self.getNDiscreteVars()
+        node_state_view[10] = float(SCIPgetNFixedVars(self._scip)) / SCIPgetNVars(self._scip)
+        node_state_view[11] = float(nboundchgs) / SCIPgetNVars(self._scip)
 
         return node_state
 
@@ -3196,7 +3092,6 @@ cdef class Model:
         :param mip_dim: dimensionality of MIP state representation.
         """
 
-        # cdef np.ndarray[np.float_t, ndim=1] mip_state = np.empty(mip_dim, dtype=np.float)
         mip_state = np.empty(mip_dim, dtype=np.double)
         cdef double[::1] mip_state_view = mip_state  # C-view contiguous
 
@@ -3290,7 +3185,7 @@ cdef class Model:
                 mip_state_view[21] = 0
         if isRoot:
             mip_state_view[22] = 0
-            mip_state_view[23] = SCIPisPrimalboundSol(self._scip)
+            mip_state_view[23] = float(SCIPisPrimalboundSol(self._scip))
             mip_state_view[24] = 0
         else:
             mip_state_view[22] = float(self._scip.stat.nnodesbeforefirst) / SCIPgetNNodes(self._scip)
@@ -3303,8 +3198,6 @@ cdef class Model:
         mip_state_view[27] = SCIPgetAvgCutoffScoreCurrentRun(self._scip)
 
         # open nodes
-        # cdef np.ndarray[np.float_t, ndim=1] open_lowerbounds = np.empty([nleaves + nchildren + nsiblings], dtype=np.float)
-        # cdef np.ndarray[np.float_t, ndim=1] open_depths = np.empty([nleaves + nchildren + nsiblings], dtype=np.float)
         open_lowerbounds = np.empty([nleaves + nchildren + nsiblings], dtype = np.double)
         cdef double[::1] open_lowerbounds_view = open_lowerbounds  # C-view contiguous
         open_depths = np.empty([nleaves + nchildren + nsiblings], dtype = np.double)
@@ -3332,20 +3225,19 @@ cdef class Model:
             else:
                 mip_state_view[31] = np.min(open_lowerbounds) / SCIPgetUpperbound(self._scip)
                 mip_state_view[32] = np.max(open_lowerbounds) / SCIPgetUpperbound(self._scip)
-            if np.max(open_lowerbounds) != 0:
-                mip_state_view[33] = np.min(open_lowerbounds) / np.max(open_lowerbounds)
+            if np.min(open_lowerbounds) != 0:
+                mip_state_view[33] = SCIPgetLowerbound(self._scip) / np.min(open_lowerbounds)
             else:
                 mip_state_view[33] = 0
-            mip_state_view[34] = len(np.argwhere(open_lowerbounds < SCIPgetUpperbound(self._scip))) / len(open_lowerbounds)
-            # TODO: correct with normalized value (e.g. max depth)
-            mip_state_view[35] = np.mean(open_depths)
-            # TODO: add percentiles as in rl2branch (! float operations)
-            # percentiles = (10, 25, 50, 75, 90)
-            # qs = np.percentile(open_lowerbounds, percentiles, overwrite_input=True, interpolation='linear')
-            # mip_state.extend(qs)
+            if np.max(open_lowerbounds) != 0:
+                mip_state_view[34] = SCIPgetLowerbound(self._scip) / np.max(open_lowerbounds)
+                mip_state_view[35] = np.min(open_lowerbounds) / np.max(open_lowerbounds)
+            else:
+                mip_state_view[34] = 0
+                mip_state_view[35] = 0
+            mip_state_view[36] = float(np.mean(open_depths)) / SCIPgetMaxDepth(self._scip)
         else:
             mip_state_view[28:] = 0
-            # mip_state.extend([0]*9)
 
         return mip_state
 
@@ -3366,7 +3258,6 @@ cdef class Model:
         cdef int nfracimplvars
         PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
 
-        # cdef np.ndarray[np.float_t, ndim=2] cands_state_mat = np.empty((nlpcands, var_dim), dtype=np.float)
         cands_state_mat = np.empty((nlpcands, var_dim), dtype=np.double)
         cdef double[:, ::1] cands_state_mat_view = cands_state_mat  # C-view contiguous
         cdef size_t i = 0
@@ -3426,147 +3317,6 @@ cdef class Model:
 
 
     #############################
-
-    # todo: improve tracking of branching vars wrt nodes and step
-    def getAncestorBranchingPath(self):
-        """Get set of variable branchings performed in all ancestor nodes."""
-        # todo: probably depth is sufficient to allocate memory
-        cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
-        cdef int depth = SCIPnodeGetDepth(node)
-
-        cdef SCIP_VAR** branchvars = <SCIP_VAR **> malloc((depth+1) * sizeof(SCIP_VAR))
-        cdef SCIP_Real* branchbounds = <SCIP_Real *> malloc((depth+1) * sizeof(SCIP_Real))
-        cdef SCIP_BOUNDTYPE* boundtypes = <SCIP_BOUNDTYPE *> malloc((depth+1) * sizeof(SCIP_BOUNDTYPE))
-        cdef int nbranchvars
-        cdef int branchvarssize = depth+1
-        cdef int nodeswitches
-        cdef int nnodes
-        cdef int nodeswitchsize = depth+1
-
-        SCIPnodeGetAncestorBranchingPath(node, branchvars, branchbounds, boundtypes, &nbranchvars, branchvarssize, &nodeswitches, &nnodes, nodeswitchsize)
-        varslist_pos = [SCIPcolGetLPPos(SCIPvarGetCol(branchvars[i])) for i in range(nbranchvars)]
-        # print('nbranchvars: ', nbranchvars, 'branchvarssize: ', branchvarssize, 'nodeswitches: ', nodeswitches, 'nnodes: ', nnodes, 'nodeswitchsize: ', nodeswitchsize)
-        free(branchvars)
-        free(branchbounds)
-        free(boundtypes)
-
-        return varslist_pos, nbranchvars, branchvarssize, nodeswitches, nnodes, nodeswitchsize
-
-    def getLowerboundRoot(self):
-        """Return the lower bound at the root node.
-        """
-        return SCIPgetLowerboundRoot(self._scip)
-
-    def getLowerboundOpenNodes(self):
-        """Return the list of lower bounds of all open nodes.
-        """
-        cdef SCIP_NODE** leaves
-        cdef SCIP_NODE** children
-        cdef SCIP_NODE** siblings
-        cdef int nleaves
-        cdef int nchildren
-        cdef int nsiblings
-
-        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
-
-        lower_bounds_open_nodes = []
-        for i in range(nleaves):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(leaves[i]))
-        for i in range(nchildren):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(children[i]))
-        for i in range(nsiblings):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i]))
-        return lower_bounds_open_nodes
-
-    def getOpenLowerBoundImprovement(self, eps=1e-3):
-        """Get the average lower bound improvement across the open nodes, with respect to the root lower bound.
-        Assumes the lower bound at the root is not 0.
-        """
-        cdef SCIP_NODE** leaves
-        cdef SCIP_NODE** children
-        cdef SCIP_NODE** siblings
-        cdef int nleaves
-        cdef int nchildren
-        cdef int nsiblings
-
-        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
-
-        lower_bounds_open_nodes = []
-        for i in range(nleaves):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(leaves[i]))
-        for i in range(nchildren):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(children[i]))
-        for i in range(nsiblings):
-            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i]))
-
-        lb_root = SCIPgetLowerboundRoot(self._scip)
-        assert lb_root != 0
-
-        if len(lower_bounds_open_nodes) == 0:
-            return 0
-        else:
-            sumlog = 0
-            for lb in lower_bounds_open_nodes:
-                if lb > lb_root + eps:
-                    sumlog += log(lb - lb_root)
-                else:
-                    sumlog += log(eps)
-            return exp(sumlog / len(lower_bounds_open_nodes))
-
-    def getDepthOpenNodes(self):
-        """Return the list of depth of all open nodes.
-        """
-        cdef SCIP_NODE** leaves
-        cdef SCIP_NODE** children
-        cdef SCIP_NODE** siblings
-        cdef int nleaves
-        cdef int nchildren
-        cdef int nsiblings
-
-        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
-
-        depth_open_nodes = []
-        for i in range(nleaves):
-            depth_open_nodes.append(SCIPnodeGetDepth(leaves[i]))
-        for i in range(nchildren):
-            depth_open_nodes.append(SCIPnodeGetDepth(children[i]))
-        for i in range(nsiblings):
-            depth_open_nodes.append(SCIPnodeGetDepth(siblings[i]))
-        return depth_open_nodes
-
-    def getNumLPBranchCands(self):
-        """Get the number of branching candidates from the LP relaxation (to be used for open nodes?).
-        """
-        cdef SCIP_VAR** lpcands
-        cdef SCIP_Real* lpcandssol
-        cdef SCIP_Real* lpcandsfrac
-        cdef int nlpcands
-        cdef int npriolpcands
-        cdef int nfracimplvars
-        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
-
-        return nlpcands
-
-    def getOpenParentNum(self):
-        """Get the number (id) of parents nodes of all open nodes.
-        """
-        cdef SCIP_NODE** leaves
-        cdef SCIP_NODE** children
-        cdef SCIP_NODE** siblings
-        cdef int nleaves
-        cdef int nchildren
-        cdef int nsiblings
-
-        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
-
-        parid_open_nodes = []
-        for i in range(nleaves):
-            parid_open_nodes.append(SCIPnodeGetNumber(SCIPnodeGetParent(leaves[i])))
-        for i in range(nchildren):
-            parid_open_nodes.append(SCIPnodeGetNumber(SCIPnodeGetParent(children[i])))
-        for i in range(nsiblings):
-            parid_open_nodes.append(SCIPnodeGetNumber(SCIPnodeGetParent(siblings[i])))
-        return parid_open_nodes
 
     # TODO: remove
     def getNodeRepr(self):
@@ -3805,6 +3555,147 @@ cdef class Model:
                              }
         return cands_dict
 
+    # todo: improve tracking of branching vars wrt nodes and step
+    def getAncestorBranchingPath(self):
+        """Get set of variable branchings performed in all ancestor nodes."""
+        # todo: probably depth is sufficient to allocate memory
+        cdef SCIP_NODE* node = SCIPgetCurrentNode(self._scip)
+        cdef int depth = SCIPnodeGetDepth(node)
+
+        cdef SCIP_VAR** branchvars = <SCIP_VAR **> malloc((depth+1) * sizeof(SCIP_VAR))
+        cdef SCIP_Real* branchbounds = <SCIP_Real *> malloc((depth+1) * sizeof(SCIP_Real))
+        cdef SCIP_BOUNDTYPE* boundtypes = <SCIP_BOUNDTYPE *> malloc((depth+1) * sizeof(SCIP_BOUNDTYPE))
+        cdef int nbranchvars
+        cdef int branchvarssize = depth+1
+        cdef int nodeswitches
+        cdef int nnodes
+        cdef int nodeswitchsize = depth+1
+
+        SCIPnodeGetAncestorBranchingPath(node, branchvars, branchbounds, boundtypes, &nbranchvars, branchvarssize, &nodeswitches, &nnodes, nodeswitchsize)
+        varslist_pos = [SCIPcolGetLPPos(SCIPvarGetCol(branchvars[i])) for i in range(nbranchvars)]
+        # print('nbranchvars: ', nbranchvars, 'branchvarssize: ', branchvarssize, 'nodeswitches: ', nodeswitches, 'nnodes: ', nnodes, 'nodeswitchsize: ', nodeswitchsize)
+        free(branchvars)
+        free(branchbounds)
+        free(boundtypes)
+
+        return varslist_pos, nbranchvars, branchvarssize, nodeswitches, nnodes, nodeswitchsize
+
+    def getLowerboundRoot(self):
+        """Return the lower bound at the root node.
+        """
+        return SCIPgetLowerboundRoot(self._scip)
+
+    def getLowerboundOpenNodes(self):
+        """Return the list of lower bounds of all open nodes.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+
+        lower_bounds_open_nodes = []
+        for i in range(nleaves):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(leaves[i]))
+        for i in range(nchildren):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(children[i]))
+        for i in range(nsiblings):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i]))
+        return lower_bounds_open_nodes
+
+    def getOpenLowerBoundImprovement(self, eps=1e-3):
+        """Get the average lower bound improvement across the open nodes, with respect to the root lower bound.
+        Assumes the lower bound at the root is not 0.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+
+        lower_bounds_open_nodes = []
+        for i in range(nleaves):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(leaves[i]))
+        for i in range(nchildren):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(children[i]))
+        for i in range(nsiblings):
+            lower_bounds_open_nodes.append(SCIPnodeGetLowerbound(siblings[i]))
+
+        lb_root = SCIPgetLowerboundRoot(self._scip)
+        assert lb_root != 0
+
+        if len(lower_bounds_open_nodes) == 0:
+            return 0
+        else:
+            sumlog = 0
+            for lb in lower_bounds_open_nodes:
+                if lb > lb_root + eps:
+                    sumlog += log(lb - lb_root)
+                else:
+                    sumlog += log(eps)
+            return exp(sumlog / len(lower_bounds_open_nodes))
+
+    def getDepthOpenNodes(self):
+        """Return the list of depth of all open nodes.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+
+        depth_open_nodes = []
+        for i in range(nleaves):
+            depth_open_nodes.append(SCIPnodeGetDepth(leaves[i]))
+        for i in range(nchildren):
+            depth_open_nodes.append(SCIPnodeGetDepth(children[i]))
+        for i in range(nsiblings):
+            depth_open_nodes.append(SCIPnodeGetDepth(siblings[i]))
+        return depth_open_nodes
+
+    def getNumLPBranchCands(self):
+        """Get the number of branching candidates from the LP relaxation (to be used for open nodes?).
+        """
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
+        cdef int nlpcands
+        cdef int npriolpcands
+        cdef int nfracimplvars
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
+
+        return nlpcands
+
+    def getOpenParentNum(self):
+        """Get the number (id) of parents nodes of all open nodes.
+        """
+        cdef SCIP_NODE** leaves
+        cdef SCIP_NODE** children
+        cdef SCIP_NODE** siblings
+        cdef int nleaves
+        cdef int nchildren
+        cdef int nsiblings
+
+        PY_SCIP_CALL(SCIPgetOpenNodesData(self._scip, &leaves, &children, &siblings, &nleaves, &nchildren, &nsiblings))
+
+        parid_open_nodes = []
+        for i in range(nleaves):
+            parid_open_nodes.append(SCIPnodeGetNumber(SCIPnodeGetParent(leaves[i])))
+        for i in range(nchildren):
+            parid_open_nodes.append(SCIPnodeGetNumber(SCIPnodeGetParent(children[i])))
+        for i in range(nsiblings):
+            parid_open_nodes.append(SCIPnodeGetNumber(SCIPnodeGetParent(siblings[i])))
+        return parid_open_nodes
+
 
     def getLPCands(self):
         """Get the candidate set and its variables positions.
@@ -3819,7 +3710,6 @@ cdef class Model:
         PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
 
         return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)]
-
 
     def executeBranchRule(self, str name, allowaddcons):
         cdef SCIP_BRANCHRULE*  branchrule
