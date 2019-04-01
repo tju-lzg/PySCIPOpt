@@ -1896,6 +1896,7 @@ cdef extern from "branch_fullstrong_vanilla.h":
     SCIP_RETCODE SCIPincludeBranchruleFullstrongVanilla(SCIP* scip)
     SCIP_Real* SCIPgetFullstrongVanillaLatestScores(SCIP* scip)
     SCIP_Bool* SCIPgetFullstrongVanillaValidScores(SCIP* scip)
+    int SCIPgetFullstrongVanillaBestcand(SCIP* scip)
 
 cdef extern from "branch_fullstrong_forced.h":
     SCIP_RETCODE SCIPincludeBranchruleFullstrongForced(SCIP* scip)

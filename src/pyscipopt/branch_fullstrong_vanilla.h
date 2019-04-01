@@ -57,6 +57,11 @@ SCIP_Bool* SCIPgetFullstrongVanillaValidScores(
    SCIP*                 scip                /**< SCIP data structure */
    );
 
+EXTERN
+int SCIPgetFullstrongVanillaBestcand(
+   SCIP*                 scip                /**< SCIP data structure */
+   );
+
 
 
 #ifdef __cplusplus

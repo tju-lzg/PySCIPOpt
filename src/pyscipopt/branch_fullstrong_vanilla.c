@@ -47,6 +47,7 @@ struct SCIP_BranchruleData
    int                   scoresize;
    SCIP_Real*            latestscores;
    SCIP_Bool*            validscores;
+   int                   bestcand;
 };
 
 
@@ -376,7 +377,6 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpFullstrong)
    SCIP_Bool bestupvalid;
    int nlpcands;
    int npriolpcands;
-   int bestcand;
 
    assert(branchrule != NULL);
    assert(strcmp(SCIPbranchruleGetName(branchrule), BRANCHRULE_NAME) == 0);
@@ -419,7 +419,7 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpFullstrong)
    BMSclearMemoryArray(branchruledata->validscores, branchruledata->scoresize);
 
    SCIP_CALL( SCIPselectVarStrongBranchingVanilla(scip, lpcands, lpcandssol, lpcandsfrac,
-         nlpcands, npriolpcands, branchruledata->forcestrongbranch, &bestcand,
+         nlpcands, npriolpcands, branchruledata->forcestrongbranch, &(branchruledata->bestcand),
          &bestdown, &bestup, &bestscore, &bestdownvalid, &bestupvalid, &provedbound,
          branchruledata->latestscores, branchruledata->validscores,
          result) );
@@ -430,15 +430,15 @@ SCIP_DECL_BRANCHEXECLP(branchExeclpFullstrong)
    SCIP_Real val;
 
    assert(*result == SCIP_DIDNOTRUN);
-   assert(0 <= bestcand && bestcand < nlpcands);
+   assert(0 <= branchruledata->bestcand && branchruledata->bestcand < nlpcands);
    assert(SCIPisLT(scip, provedbound, SCIPgetCutoffbound(scip)));
 
-   var = lpcands[bestcand];
-   val = lpcandssol[bestcand];
+   var = lpcands[branchruledata->bestcand];
+   val = lpcandssol[branchruledata->bestcand];
 
    /* perform the branching */
    SCIPdebugMsg(scip, " -> %d candidates, selected candidate %d: variable <%s> (solval=%g, down=%g, up=%g, score=%g)\n",
-      nlpcands, bestcand, SCIPvarGetName(var), lpcandssol[bestcand], bestdown, bestup, bestscore);
+      nlpcands, branchruledata->bestcand, SCIPvarGetName(var), val, bestdown, bestup, bestscore);
    SCIP_CALL( SCIPbranchVarVal(scip, var, val, &downchild, NULL, &upchild) );
    assert(downchild != NULL || upchild != NULL);
 
@@ -478,6 +478,7 @@ SCIP_RETCODE SCIPincludeBranchruleFullstrongVanilla(
    branchruledata->latestscores = NULL;
    branchruledata->validscores = NULL;
    branchruledata->scoresize = 0;
+   branchruledata->bestcand = 0;
 
    /* include branching rule */
    SCIP_CALL( SCIPincludeBranchruleBasic(scip, &branchrule, BRANCHRULE_NAME, BRANCHRULE_DESC, BRANCHRULE_PRIORITY,
@@ -525,4 +526,17 @@ SCIP_Bool* SCIPgetFullstrongVanillaValidScores(
    branchruledata = SCIPbranchruleGetData(branchrule);
 
    return branchruledata->validscores;
+}
+
+int SCIPgetFullstrongVanillaBestcand(
+   SCIP*                 scip                /**< SCIP data structure */
+)
+{
+   SCIP_BRANCHRULEDATA* branchruledata;
+   SCIP_BRANCHRULE* branchrule;
+
+   branchrule = SCIPfindBranchrule(scip, BRANCHRULE_NAME);
+   branchruledata = SCIPbranchruleGetData(branchrule);
+
+   return branchruledata->bestcand;
 }

@@ -4068,6 +4068,7 @@ cdef class Model:
         cdef SCIP_VAR** lpcands
         cdef SCIP_Real* latestscores;
         cdef SCIP_Bool* validscores;
+        cdef int best_cand;
         cdef np.ndarray[np.float32_t, ndim=1] latest_scores
         cdef np.ndarray[np.int32_t,   ndim=1] valid_scores
         cdef np.ndarray[np.int32_t,   ndim=1] lp_positions
@@ -4085,7 +4086,9 @@ cdef class Model:
             valid_scores[i] = validscores[i]
             lp_positions[i] = SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i]))
 
-        return latest_scores, valid_scores, lp_positions
+        best_cand = SCIPgetFullstrongVanillaBestcand(self._scip)
+
+        return latest_scores, valid_scores, lp_positions, best_cand
 
 
 # debugging memory management
