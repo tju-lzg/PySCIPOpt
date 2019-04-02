@@ -3747,36 +3747,39 @@ cdef class Model:
         cdef np.ndarray[np.int32_t,   ndim=1] row_is_at_rhs
 
         if not update:
-            row_lhss       = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_rhss       = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_nnzrs      = np.empty(shape=(nrows, ), dtype=np.int32)
-            row_dualsols   = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_basestats  = np.empty(shape=(nrows, ), dtype=np.int32)
-            row_ages       = np.empty(shape=(nrows, ), dtype=np.int32)
-            row_activities = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_objcossims = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_norms      = np.empty(shape=(nrows, ), dtype=np.float32)
-            row_is_at_lhs  = np.empty(shape=(nrows, ), dtype=np.int32)
-            row_is_at_rhs  = np.empty(shape=(nrows, ), dtype=np.int32)
+            row_lhss          = np.empty(shape=(nrows, ), dtype=np.float32)
+            row_rhss          = np.empty(shape=(nrows, ), dtype=np.float32)
+            row_nnzrs         = np.empty(shape=(nrows, ), dtype=np.int32)
+            row_dualsols      = np.empty(shape=(nrows, ), dtype=np.float32)
+            row_basestats     = np.empty(shape=(nrows, ), dtype=np.int32)
+            row_ages          = np.empty(shape=(nrows, ), dtype=np.int32)
+            row_activities    = np.empty(shape=(nrows, ), dtype=np.float32)
+            row_objcossims    = np.empty(shape=(nrows, ), dtype=np.float32)
+            row_norms         = np.empty(shape=(nrows, ), dtype=np.float32)
+            row_is_at_lhs     = np.empty(shape=(nrows, ), dtype=np.int32)
+            row_is_at_rhs     = np.empty(shape=(nrows, ), dtype=np.int32)
+            row_is_local      = np.empty(shape=(nrows, ), dtype=np.int32)
+            row_is_modifiable = np.empty(shape=(nrows, ), dtype=np.int32)
+            row_is_removable  = np.empty(shape=(nrows, ), dtype=np.int32)
         else:
-            row_lhss       = prev_state['row']['lhss']
-            row_rhss       = prev_state['row']['rhss']
-            row_nnzrs      = prev_state['row']['nnzrs']
-            row_dualsols   = prev_state['row']['dualsols']
-            row_basestats  = prev_state['row']['basestats']
-            row_ages       = prev_state['row']['ages']
-            row_activities = prev_state['row']['activities']
-            row_objcossims = prev_state['row']['objcossims']
-            row_norms      = prev_state['row']['norms']
-            row_is_at_lhs  = prev_state['row']['is_at_lhs']
-            row_is_at_rhs  = prev_state['row']['is_at_rhs']
+            row_lhss          = prev_state['row']['lhss']
+            row_rhss          = prev_state['row']['rhss']
+            row_nnzrs         = prev_state['row']['nnzrs']
+            row_dualsols      = prev_state['row']['dualsols']
+            row_basestats     = prev_state['row']['basestats']
+            row_ages          = prev_state['row']['ages']
+            row_activities    = prev_state['row']['activities']
+            row_objcossims    = prev_state['row']['objcossims']
+            row_norms         = prev_state['row']['norms']
+            row_is_at_lhs     = prev_state['row']['is_at_lhs']
+            row_is_at_rhs     = prev_state['row']['is_at_rhs']
+            row_is_local      = prev_state['row']['is_local']
+            row_is_modifiable = prev_state['row']['is_modifiable']
+            row_is_removable  = prev_state['row']['is_removable']
 
         cdef int nnzrs = 0
         cdef SCIP_Real activity, lhs, rhs, cst
         for i in range(nrows):
-
-            # assert rows can not be altered between updates
-            # assert not (SCIProwIsLocal(rows[i]) or SCIProwIsModifiable(rows[i]) or SCIProwIsRemovable(rows[i]))
 
             # lhs <= activity + cst <= rhs
             lhs = SCIProwGetLhs(rows[i])
@@ -3800,6 +3803,11 @@ cdef class Model:
                     row_rhss[i] = NAN
                 else:
                     row_rhss[i] = rhs - cst
+
+                # row properties
+                row_is_local[i] = SCIProwIsLocal(rows[i])
+                row_is_modifiable[i] = SCIProwIsModifiable(rows[i])
+                row_is_removable[i] = SCIProwIsRemovable(rows[i]))
 
                 # Objective cosine similarity - inspired from SCIProwGetObjParallelism()
                 SCIPlpRecalculateObjSqrNorm(scip.set, scip.lp)
@@ -3875,17 +3883,20 @@ cdef class Model:
                 'avgincvals':   col_avgincvals,
             },
             'row': {
-                'lhss':       row_lhss,
-                'rhss':       row_rhss,
-                'nnzrs':      row_nnzrs,
-                'dualsols':   row_dualsols,
-                'basestats':  row_basestats,
-                'ages':       row_ages,
-                'activities': row_activities,
-                'objcossims': row_objcossims,
-                'norms':      row_norms,
-                'is_at_lhs':  row_is_at_lhs,
-                'is_at_rhs':  row_is_at_rhs,
+                'lhss':          row_lhss,
+                'rhss':          row_rhss,
+                'nnzrs':         row_nnzrs,
+                'dualsols':      row_dualsols,
+                'basestats':     row_basestats,
+                'ages':          row_ages,
+                'activities':    row_activities,
+                'objcossims':    row_objcossims,
+                'norms':         row_norms,
+                'is_at_lhs':     row_is_at_lhs,
+                'is_at_rhs':     row_is_at_rhs,
+                'is_local':      row_is_local,
+                'is_modifiable': row_is_modifiable,
+                'is_removable':  row_is_removable,
             },
             'nzrcoef': {
                 'colidxs': coef_colidxs,
