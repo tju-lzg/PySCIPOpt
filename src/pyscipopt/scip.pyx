@@ -3034,7 +3034,7 @@ cdef class Model:
             sumlog += np.log(children[j].lowerbound - lb_root) if children[j].lowerbound > lb_root + eps else np.log(eps)
         for j in range(nsiblings):
             sumlog += np.log(siblings[j].lowerbound - lb_root) if siblings[j].lowerbound > lb_root + eps else np.log(eps)
-        return np.exp(sumlog / (nleaves + nchildren + nsiblings)) / lb_root
+        return np.exp(sumlog / (nleaves + nchildren + nsiblings)) / np.abs(lb_root)
 
     def getOpenDepthsAvg(self):
         """Returns the sum of depths across the list of open nodes.
