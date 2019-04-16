@@ -707,6 +707,10 @@ cdef class Model:
         """Retrieve current node."""
         return Node.create(SCIPgetCurrentNode(self._scip))
 
+    def getNLPIterations(self):
+        """Retrieve current number of LP iterations."""
+        return SCIPgetNLPIterations(self._scip)
+
     def getGap(self):
         """Retrieve the gap, i.e. |(primalbound - dualbound)/min(|primalbound|,|dualbound|)|."""
         return SCIPgetGap(self._scip)
