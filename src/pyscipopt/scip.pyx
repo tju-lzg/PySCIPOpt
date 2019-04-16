@@ -3807,7 +3807,7 @@ cdef class Model:
                 # row properties
                 row_is_local[i] = SCIProwIsLocal(rows[i])
                 row_is_modifiable[i] = SCIProwIsModifiable(rows[i])
-                row_is_removable[i] = SCIProwIsRemovable(rows[i]))
+                row_is_removable[i] = SCIProwIsRemovable(rows[i])
 
                 # Objective cosine similarity - inspired from SCIProwGetObjParallelism()
                 SCIPlpRecalculateObjSqrNorm(scip.set, scip.lp)
