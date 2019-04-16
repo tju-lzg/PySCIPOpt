@@ -4060,6 +4060,7 @@ cdef class Model:
             'avgcutoffscore': SCIPgetAvgCutoffScore(scip),
             'avgcuroffscorecurrentrun': SCIPgetAvgCutoffScoreCurrentRun(scip),
             'deterministictime': SCIPgetDeterministicTime(scip),  # gets deterministic time number of LPs solved so far
+            'solvingtime': SCIPgetSolvingTime(scip),
         }
 
     def executeBranchRule(self, str name, allowaddcons):
