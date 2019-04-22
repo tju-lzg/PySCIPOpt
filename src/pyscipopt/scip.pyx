@@ -2743,9 +2743,9 @@ cdef class Model:
         cdef int nfracimplvars
 
         ncands = SCIPgetNLPBranchCands(self._scip)
-        cdef SCIP_VAR** lpcands = <SCIP_VAR**> malloc(ncands * sizeof(SCIP_VAR*))
-        cdef SCIP_Real* lpcandssol = <SCIP_Real*> malloc(ncands * sizeof(SCIP_Real))
-        cdef SCIP_Real* lpcandsfrac = <SCIP_Real*> malloc(ncands * sizeof(SCIP_Real))
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
 
         PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac,
                                           &nlpcands, &npriolpcands, &nfracimplvars))
