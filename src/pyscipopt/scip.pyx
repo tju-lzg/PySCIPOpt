@@ -4343,14 +4343,13 @@ cdef class Model:
         PY_SCIP_CALL(SCIPgetVanillafullstrongData(self._scip,
             &cands, &candscores, &ncands, &npriocands, &bestcand))
 
-        assert cands is not NULL and candscores is not NULL
+        assert cands is not NULL
         assert ncands > 0 and npriocands >= 0
         assert bestcand > -1
 
         return (
             [Variable.create(cands[i]) for i in range(ncands)],
-            [candscores[i] for i in range(ncands)],
-            ncands,
+            None if candscores is NULL else [candscores[i] for i in range(ncands)],
             npriocands,
             bestcand
         )
