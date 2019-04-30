@@ -4166,15 +4166,15 @@ cdef class Model:
             },
         }
 
-    def getKhalilState(self, root_info):
+    def getKhalilState(self, root_info, candidates):
         cdef SCIP* scip = self._scip
         cdef SCIP_COL** cols = SCIPgetLPCols(scip)
         cdef int ncols = SCIPgetNLPCols(scip)
         cdef int i, j, k, col_i
-        cdef int ncands = SCIPgetNLPBranchCands(scip)
-        cdef SCIP_VAR** lpcands
-        cdef int nlpcands
-        SCIPgetLPBranchCands(scip, &lpcands, NULL, NULL, &nlpcands, NULL, NULL)
+        cdef int ncands = len(candidates)
+        cdef SCIP_VAR** lpcands = <SCIP_VAR**> malloc(ncands * sizeof(SCIP_VAR*))
+        for i in range(ncands):
+            lpcands[i] = (<Variable>candidates[i]).scip_var
 
         cdef np.ndarray[np.float32_t, ndim=1] col_coefs
         cdef np.ndarray[np.float32_t, ndim=1] col_coefs_pos
@@ -4352,8 +4352,9 @@ cdef class Model:
             root_info['col']['root_ncoefs_min']     = np.empty(shape=(ncols, ), dtype=np.float32)
             root_info['col']['root_ncoefs_max']     = np.empty(shape=(ncols, ), dtype=np.float32)
             for col_i in range(ncols):
-                col = cols[i]
-                # col_i = SCIPcolGetLPPos(col)
+                col = cols[col_i]
+                neighbors = SCIPcolGetRows(col)
+                nb_neighbors = SCIPcolGetNNonz(col)
                 nonzero_coefs_raw = SCIPcolGetVals(col)
 
                 # if not update:
@@ -4451,8 +4452,8 @@ cdef class Model:
         cdef SCIP_Real* neighbor_columns_values
         cdef int nbranchings
         for col_i in range(ncands):
-            col = SCIPvarGetCol(lpcands[col_i])
             var = lpcands[col_i]
+            col = SCIPvarGetCol(var)
             neighbors = SCIPcolGetRows(col)
             nb_neighbors = SCIPcolGetNNonz(col)
             nonzero_coefs_raw = SCIPcolGetVals(col)
@@ -4631,7 +4632,7 @@ cdef class Model:
                 for neighbor_column_index in range(neighbor_ncolumns):
                     neighbor_var = SCIPcolGetVar(neighbor_columns[neighbor_column_index])
                     neighbor_var_index = SCIPvarGetIndex(neighbor_var)
-                    for candidate_index in range(nlpcands):
+                    for candidate_index in range(ncands):
                         if SCIPvarGetIndex(lpcands[candidate_index]) == neighbor_var_index:
                             constraint_sum += REALABS(neighbor_columns_values[neighbor_column_index])
                             break
@@ -4642,8 +4643,8 @@ cdef class Model:
                 act_cons_w4[row_index] = SCIProwGetDualsol(row)
 
         for col_i in range(ncands):
-            col = SCIPvarGetCol(lpcands[col_i])
             var = lpcands[col_i]
+            col = SCIPvarGetCol(var)
             neighbors = SCIPcolGetRows(col)
             nb_neighbors = SCIPcolGetNNonz(col)
             nonzero_coefs_raw = SCIPcolGetVals(col)
@@ -4728,6 +4729,7 @@ cdef class Model:
             col_acons_nb3[col_i]   = acons_nb3
             col_acons_nb4[col_i]   = acons_nb4
 
+        free(lpcands)
         return {
             'coefs':                col_coefs,
             'coefs_pos':            col_coefs_pos,
