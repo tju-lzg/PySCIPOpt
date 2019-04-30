@@ -659,7 +659,7 @@ cdef void relayErrorMessage(void *messagehdlr, FILE *file, const char *msg):
 # - interface SCIPfreeProb()
 ##
 #@anchor Model
-## 
+##
 cdef class Model:
     cdef SCIP* _scip
     cdef SCIP_Bool* _valid
@@ -1382,7 +1382,7 @@ cdef class Model:
     # LP Row Methods
     def createEmptyRowSepa(self, Sepa sepa, name="row", lhs = 0.0, rhs = None, local = True, modifiable = False, removable = True):
         """creates and captures an LP row without any coefficients from a separator
-        
+
         :param sepa: separator that creates the row
         :param name: name of row (Default value = "row")
         :param lhs: left hand side of row (Default value = 0)
@@ -1401,7 +1401,7 @@ cdef class Model:
 
     def createEmptyRowUnspec(self, name="row", lhs = 0.0, rhs = None, local = True, modifiable = False, removable = True):
         """creates and captures an LP row without any coefficients from an unspecified source
-        
+
         :param name: name of row (Default value = "row")
         :param lhs: left hand side of row (Default value = 0)
         :param rhs: right hand side of row (Default value = None)
@@ -1430,8 +1430,8 @@ cdef class Model:
         PY_SCIP_CALL(SCIPreleaseRow(self._scip, &row.scip_row))
 
     def cacheRowExtensions(self, Row row not None):
-        """informs row, that all subsequent additions of variables to the row should be cached and not directly applied; 
-        after all additions were applied, flushRowExtensions() must be called; 
+        """informs row, that all subsequent additions of variables to the row should be cached and not directly applied;
+        after all additions were applied, flushRowExtensions() must be called;
         while the caching of row extensions is activated, information methods of the row give invalid results;
         caching should be used, if a row is build with addVarToRow() calls variable by variable to increase the performance"""
         PY_SCIP_CALL(SCIPcacheRowExtensions(self._scip, row.scip_row))
@@ -2927,13 +2927,13 @@ cdef class Model:
 
     def includeRelax(self, Relax relax, name, desc, priority=10000, freq=1):
         """Include a relaxation handler.
-        
+
         :param Relax relax: relaxation handler
         :param name: name of relaxation handler
         :param desc: description of relaxation handler
         :param priority: priority of the relaxation handler (negative: after LP, non-negative: before LP, Default value = 10000)
         :param freq: frequency for calling relaxation handler
-        
+
         """
         nam = str_conversion(name)
         des = str_conversion(desc)
@@ -3030,7 +3030,7 @@ cdef class Model:
         benderscut.name = name
         # TODO: It might be necessary in increment the reference to benders i.e Py_INCREF(benders)
         Py_INCREF(benderscut)
-        
+
 
     def getLPBranchCands(self):
         """gets branching candidates for LP solution branching (fractional variables) along with solution values,
@@ -4164,6 +4164,643 @@ cdef class Model:
             'stats': {
                 'nlps': SCIPgetNLPs(scip),
             },
+        }
+
+    def getKhalilState(self, root_info):
+        cdef SCIP* scip = self._scip
+        cdef SCIP_COL** cols = SCIPgetLPCols(scip)
+        cdef int ncols = SCIPgetNLPCols(scip)
+        cdef int i, j, k, col_i
+        cdef int ncands = SCIPgetNLPBranchCands(scip)
+        cdef SCIP_VAR** lpcands
+        cdef int nlpcands
+        SCIPgetLPBranchCands(scip, &lpcands, NULL, NULL, &nlpcands, NULL, NULL)
+
+        cdef np.ndarray[np.float32_t, ndim=1] col_coefs
+        cdef np.ndarray[np.float32_t, ndim=1] col_coefs_pos
+        cdef np.ndarray[np.float32_t, ndim=1] col_coefs_neg
+        cdef np.ndarray[np.int32_t, ndim=1] col_nnzrs
+        cdef np.ndarray[np.float32_t, ndim=1] col_root_cdeg_mean
+        cdef np.ndarray[np.float32_t, ndim=1] col_root_cdeg_var
+        cdef np.ndarray[np.int32_t, ndim=1] col_root_cdeg_min
+        cdef np.ndarray[np.int32_t, ndim=1] col_root_cdeg_max
+        cdef np.ndarray[np.int32_t, ndim=1] col_root_pcoefs_count
+        cdef np.ndarray[np.float32_t, ndim=1] col_root_pcoefs_mean
+        cdef np.ndarray[np.float32_t, ndim=1] col_root_pcoefs_var
+        cdef np.ndarray[np.float32_t, ndim=1] col_root_pcoefs_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_root_pcoefs_max
+        cdef np.ndarray[np.int32_t, ndim=1] col_root_ncoefs_count
+        cdef np.ndarray[np.float32_t, ndim=1] col_root_ncoefs_mean
+        cdef np.ndarray[np.float32_t, ndim=1] col_root_ncoefs_var
+        cdef np.ndarray[np.float32_t, ndim=1] col_root_ncoefs_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_root_ncoefs_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_slack
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_up
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_down
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_ratio
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_sum
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_product
+        cdef np.ndarray[np.float32_t, ndim=1] col_nb_up_infeas
+        cdef np.ndarray[np.float32_t, ndim=1] col_nb_down_infeas
+        cdef np.ndarray[np.float32_t, ndim=1] col_cdeg_mean
+        cdef np.ndarray[np.float32_t, ndim=1] col_cdeg_var
+        cdef np.ndarray[np.int32_t, ndim=1] col_cdeg_min
+        cdef np.ndarray[np.int32_t, ndim=1] col_cdeg_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_cdeg_mean_ratio
+        cdef np.ndarray[np.float32_t, ndim=1] col_cdeg_min_ratio
+        cdef np.ndarray[np.float32_t, ndim=1] col_cdeg_max_ratio
+        cdef np.ndarray[np.float32_t, ndim=1] col_prhs_ratio_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_prhs_ratio_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_nrhs_ratio_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_nrhs_ratio_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_ota_pp_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_ota_pp_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_ota_pn_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_ota_pn_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_ota_np_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_ota_np_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_ota_nn_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_ota_nn_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_sum1
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_mean1
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_var1
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_max1
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_min1
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_sum2
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_mean2
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_var2
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_max2
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_min2
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_sum3
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_mean3
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_var3
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_max3
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_min3
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_sum4
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_mean4
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_var4
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_max4
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_min4
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_nb1
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_nb2
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_nb3
+        cdef np.ndarray[np.float32_t, ndim=1] col_acons_nb4
+
+        col_coefs               = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_coefs_pos           = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_coefs_neg           = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_nnzrs               = np.empty(shape=(ncands, ), dtype=np.int32)
+        col_root_cdeg_mean      = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_root_cdeg_var       = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_root_cdeg_min       = np.empty(shape=(ncands, ), dtype=np.int32)
+        col_root_cdeg_max       = np.empty(shape=(ncands, ), dtype=np.int32)
+        col_root_pcoefs_count   = np.empty(shape=(ncands, ), dtype=np.int32)
+        col_root_pcoefs_var     = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_root_pcoefs_mean    = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_root_pcoefs_min     = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_root_pcoefs_max     = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_root_ncoefs_count   = np.empty(shape=(ncands, ), dtype=np.int32)
+        col_root_ncoefs_mean    = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_root_ncoefs_var     = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_root_ncoefs_min     = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_root_ncoefs_max     = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_solfracs            = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_slack               = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ps_up               = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ps_down             = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ps_ratio            = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ps_sum              = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ps_product          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_frac_up_infeas      = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_frac_down_infeas    = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_nb_up_infeas        = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_nb_down_infeas      = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_cdeg_mean           = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_cdeg_var            = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_cdeg_min            = np.empty(shape=(ncands, ), dtype=np.int32)
+        col_cdeg_max            = np.empty(shape=(ncands, ), dtype=np.int32)
+        col_cdeg_mean_ratio     = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_cdeg_min_ratio      = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_cdeg_max_ratio      = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_prhs_ratio_max      = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_prhs_ratio_min      = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_nrhs_ratio_max      = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_nrhs_ratio_min      = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ota_pp_max          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ota_pp_min          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ota_pn_max          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ota_pn_min          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ota_np_max          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ota_np_min          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ota_nn_max          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_ota_nn_min          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_sum1          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_mean1         = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_var1          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_max1          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_min1          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_sum2          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_mean2         = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_var2          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_max2          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_min2          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_sum3          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_mean3         = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_var3          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_max3          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_min3          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_sum4          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_mean4         = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_var4          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_max4          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_min4          = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_nb1           = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_nb2           = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_nb3           = np.empty(shape=(ncands, ), dtype=np.float32)
+        col_acons_nb4           = np.empty(shape=(ncands, ), dtype=np.float32)
+
+        # Static
+        # ------
+        cdef SCIP_ROW** neighbors
+        cdef np.ndarray[np.int32_t,   ndim=1] neighbor_degrees
+        cdef SCIP_Real* nonzero_coefs_raw
+        cdef SCIP_Real* all_coefs_raw
+        cdef float activity, lhs, rhs, coef
+        cdef int neighbor_index, cdeg_max, cdeg_min, cdeg, nb_neighbors
+        cdef float cdeg_mean, cdeg_var
+        cdef int pcoefs_count, ncoefs_count
+        cdef float pcoefs_var, pcoefs_mean, pcoefs_min, pcoefs_max
+        cdef float ncoefs_var, ncoefs_mean, ncoefs_min, ncoefs_max
+        if SCIPgetNNodes(scip) == 1:
+            root_info['col'] = {}
+            root_info['col']['coefs']               = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['coefs_pos']           = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['coefs_neg']           = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['nnzrs']               = np.empty(shape=(ncols, ), dtype=np.int32)
+            root_info['col']['root_cdeg_mean']      = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['root_cdeg_var']       = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['root_cdeg_min']       = np.empty(shape=(ncols, ), dtype=np.int32)
+            root_info['col']['root_cdeg_max']       = np.empty(shape=(ncols, ), dtype=np.int32)
+            root_info['col']['root_pcoefs_count']   = np.empty(shape=(ncols, ), dtype=np.int32)
+            root_info['col']['root_pcoefs_var']     = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['root_pcoefs_mean']    = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['root_pcoefs_min']     = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['root_pcoefs_max']     = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['root_ncoefs_count']   = np.empty(shape=(ncols, ), dtype=np.int32)
+            root_info['col']['root_ncoefs_mean']    = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['root_ncoefs_var']     = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['root_ncoefs_min']     = np.empty(shape=(ncols, ), dtype=np.float32)
+            root_info['col']['root_ncoefs_max']     = np.empty(shape=(ncols, ), dtype=np.float32)
+            for col_i in range(ncols):
+                col = cols[i]
+                # col_i = SCIPcolGetLPPos(col)
+                nonzero_coefs_raw = SCIPcolGetVals(col)
+
+                # if not update:
+                # Objective function coeffs. (3)
+                #   Value of the coefficient (raw, positive only, negative only)
+                root_info['col']['coefs'][col_i]     = SCIPcolGetObj(col)
+                root_info['col']['coefs_pos'][col_i] = max(root_info['col']['coefs'][col_i], 0)
+                root_info['col']['coefs_neg'][col_i] = min(root_info['col']['coefs'][col_i], 0)
+
+                # Num. constraints (1)
+                #   Number of constraints that the variable participates in (with a non-zero coefficient)
+                root_info['col']['nnzrs'][col_i] = SCIPcolGetNLPNonz(col)
+
+                # Stats. for constraint degrees (4)
+                #   The degree of a constraint is the number of variables that participate in it. A variable may
+                #   participate in multiple constraints, and statistics over those constraints’ degrees are used.
+                #   The constraint degree is computed on the root LP (mean, stdev., min, max)
+                cdeg_var, cdeg_mean, cdef_min, cdeg_max = 0., 0., 9999, -9999
+                for neighbor_index in range(nb_neighbors):
+                    cdeg = SCIProwGetNNonz(neighbors[neighbor_index])
+                    if neighbor_index > 0:
+                        cdeg_var += (<float>cdeg - cdeg_mean)**2/(neighbor_index+1) - cdeg_var/neighbor_index
+                    cdeg_mean += (<float>cdeg - cdeg_mean)/(neighbor_index+1)
+                    cdeg_max = max(cdeg_max, cdeg)
+                    cdeg_min = min(cdeg_min, cdeg)
+                root_info['col']['root_cdeg_mean'][col_i] = cdeg_mean
+                root_info['col']['root_cdeg_var'][col_i] = cdeg_var
+                root_info['col']['root_cdeg_min'][col_i] = cdeg_min if cdeg_min <  9999 else 0
+                root_info['col']['root_cdeg_max'][col_i] = cdeg_max if cdeg_max > -9999 else 0
+
+                # Stats. for constraint coeffs. (10)
+                #   A variable’s positive (negative) coefficients in the constraints it participates in
+                #   (count, mean, stdev., min,max)
+                pcoefs_var, pcoefs_mean, pcoefs_min, pcoefs_max = 0., 0., 9999., -9999.
+                ncoefs_var, ncoefs_mean, ncoefs_min, ncoefs_max = 0., 0., 9999., -9999.
+                pcoefs_count, ncoefs_count = 0, 0
+                for neighbor_index in range(nb_neighbors):
+                    if nonzero_coefs_raw[neighbor_index] > 0:
+                        pcoefs_count += 1
+                        if pcoefs_count > 1:
+                            pcoefs_var += (nonzero_coefs_raw[neighbor_index] - pcoefs_mean)**2/pcoefs_count \
+                                          - pcoefs_var/(pcoefs_count-1)
+                        pcoefs_mean += (nonzero_coefs_raw[neighbor_index] - pcoefs_mean)/pcoefs_count
+                        pcoefs_min = min(pcoefs_min, nonzero_coefs_raw[neighbor_index])
+                        pcoefs_max = max(pcoefs_max, nonzero_coefs_raw[neighbor_index])
+                    if nonzero_coefs_raw[neighbor_index] < 0:
+                        ncoefs_count += 1
+                        if ncoefs_count > 1:
+                            ncoefs_var += (nonzero_coefs_raw[neighbor_index] - ncoefs_mean)**2/ncoefs_count \
+                                          - ncoefs_var/(ncoefs_count-1)
+                        ncoefs_mean += (nonzero_coefs_raw[neighbor_index] - ncoefs_mean)/ncoefs_count
+                        ncoefs_min = min(ncoefs_min, nonzero_coefs_raw[neighbor_index])
+                        ncoefs_max = max(ncoefs_max, nonzero_coefs_raw[neighbor_index])
+                root_info['col']['root_pcoefs_count'][col_i] = pcoefs_count
+                root_info['col']['root_pcoefs_mean'][col_i]  = pcoefs_mean
+                root_info['col']['root_pcoefs_var'][col_i]   = pcoefs_var
+                root_info['col']['root_pcoefs_min'][col_i]   = pcoefs_min if pcoefs_min <  9999. else 0.
+                root_info['col']['root_pcoefs_max'][col_i]   = pcoefs_max if pcoefs_max > -9999. else 0.
+                root_info['col']['root_ncoefs_count'][col_i] = ncoefs_count
+                root_info['col']['root_ncoefs_mean'][col_i]  = ncoefs_mean
+                root_info['col']['root_ncoefs_var'][col_i]   = ncoefs_var
+                root_info['col']['root_ncoefs_min'][col_i]   = ncoefs_min if ncoefs_min <  9999. else 0.
+                root_info['col']['root_ncoefs_max'][col_i]   = ncoefs_max if ncoefs_max > -9999. else 0.
+
+        for col_i in range(ncands):
+            col = SCIPvarGetCol(lpcands[col_i])
+            index = SCIPcolGetLPPos(col)
+            col_coefs[col_i]             = root_info['col']['coefs'][index]
+            col_coefs_pos[col_i]         = root_info['col']['coefs_pos'][index]
+            col_coefs_neg[col_i]         = root_info['col']['coefs_neg'][index]
+            col_nnzrs[col_i]             = root_info['col']['nnzrs'][index]
+            col_root_cdeg_mean[col_i]    = root_info['col']['root_cdeg_mean'][index]
+            col_root_cdeg_var[col_i]     = root_info['col']['root_cdeg_var'][index]
+            col_root_cdeg_min[col_i]     = root_info['col']['root_cdeg_min'][index]
+            col_root_cdeg_max[col_i]     = root_info['col']['root_cdeg_max'][index]
+            col_root_pcoefs_count[col_i] = root_info['col']['root_pcoefs_count'][index]
+            col_root_pcoefs_mean[col_i]  = root_info['col']['root_pcoefs_mean'][index]
+            col_root_pcoefs_var[col_i]   = root_info['col']['root_pcoefs_var'][index]
+            col_root_pcoefs_min[col_i]   = root_info['col']['root_pcoefs_min'][index]
+            col_root_pcoefs_max[col_i]   = root_info['col']['root_pcoefs_max'][index]
+            col_root_ncoefs_count[col_i] = root_info['col']['root_ncoefs_count'][index]
+            col_root_ncoefs_mean[col_i]  = root_info['col']['root_ncoefs_mean'][index]
+            col_root_ncoefs_var[col_i]   = root_info['col']['root_ncoefs_var'][index]
+            col_root_ncoefs_min[col_i]   = root_info['col']['root_ncoefs_min'][index]
+            col_root_ncoefs_max[col_i]   = root_info['col']['root_ncoefs_max'][index]
+
+        # Simple dynamic
+        # --------------
+        cdef int neighbor_column_index, neighbor_ncolumns
+        cdef float solval, pos_coef_sum, neg_coef_sum, neighbor_coef
+        cdef float ota_pp_max, ota_pp_min, ota_pn_max, ota_pn_min
+        cdef float ota_np_max, ota_np_min, ota_nn_max, ota_nn_min
+        cdef float value, pvalue, nvalue
+        cdef SCIP_VAR* neighbor_var
+        cdef SCIP_Real* neighbor_columns_values
+        cdef int nbranchings
+        for col_i in range(ncands):
+            col = SCIPvarGetCol(lpcands[col_i])
+            var = lpcands[col_i]
+            neighbors = SCIPcolGetRows(col)
+            nb_neighbors = SCIPcolGetNNonz(col)
+            nonzero_coefs_raw = SCIPcolGetVals(col)
+
+        # Slack and ceil distances (2)
+        #   min{xij−floor(xij),ceil(xij) −xij} and ceil(xij) −xij
+            solval = SCIPcolGetPrimsol(col)
+            col_solfracs[col_i] = SCIPfeasFrac(scip, solval)
+            col_slack[col_i] = min(col_solfracs[col_i], 1-col_solfracs[col_i])
+
+        # Pseudocosts (5)
+        #   Upwards and downwards values, and their corresponding ratio, sum and product,
+        #   weighted by the fractionality of xj
+            col_ps_up[col_i] = SCIPgetVarPseudocost(scip, var, SCIP_BRANCHDIR_UPWARDS)
+            col_ps_down[col_i] = SCIPgetVarPseudocost(scip, var, SCIP_BRANCHDIR_DOWNWARDS)
+            col_ps_ratio[col_i] = col_ps_up[col_i] / col_ps_down[col_i]
+            col_ps_sum[col_i] = col_ps_up[col_i] + col_ps_down[col_i]
+            col_ps_product[col_i] = col_ps_up[col_i] * col_ps_down[col_i]
+
+        # Infeasibility statistics (4)
+        #   Number and fraction of nodes for which applying SB to variable xj led to one (two)
+        #   infeasible children (during data collection)
+        # N.B. replaced by left, right infeasibility
+            col_nb_up_infeas[col_i]   = SCIPvarGetCutoffSum(var, SCIP_BRANCHDIR_UPWARDS)
+            col_nb_down_infeas[col_i] = SCIPvarGetCutoffSum(var, SCIP_BRANCHDIR_DOWNWARDS)
+            nbranchings = SCIPvarGetNBranchings(var, SCIP_BRANCHDIR_UPWARDS)
+            col_frac_up_infeas[col_i]   = col_nb_up_infeas[col_i]   / nbranchings if nbranchings > 0 else 0.
+            nbranchings = SCIPvarGetNBranchings(var, SCIP_BRANCHDIR_DOWNWARDS)
+            col_frac_down_infeas[col_i] = col_nb_down_infeas[col_i] / nbranchings if nbranchings > 0 else 0.
+
+        # Stats. for constraint degrees (7)
+        #   A dynamic variant of the static version above. Here, the constraint degrees are
+        #   on the current node’s LP.The ratios of the static mean, maximum and minimum to
+        #   their dynamic counterparts are also features
+            cdeg_var, cdeg_mean, cdef_min, cdeg_max = 0., 0., 9999, -9999
+            for neighbor_index in range(nb_neighbors):
+                cdeg = SCIProwGetNNonz(neighbors[neighbor_index])
+                if neighbor_index > 0:
+                    cdeg_var = (neighbor_index-1)/neighbor_index*cdeg_var \
+                               + (<float>cdeg - cdeg_mean)**2/(neighbor_index+1)
+                cdeg_mean += (<float>cdeg - cdeg_mean)/(neighbor_index+1)
+                cdeg_max = max(cdeg_max, cdeg)
+                cdeg_min = min(cdeg_min, cdeg)
+            col_cdeg_mean[col_i] = cdeg_mean
+            col_cdeg_var[col_i]  = cdeg_var
+            col_cdeg_min[col_i]  = cdeg_min if cdeg_min <  9999 else 0
+            col_cdeg_max[col_i]  = cdeg_max if cdeg_max > -9999 else 0
+            col_cdeg_mean_ratio[col_i] = col_cdeg_mean[col_i] / col_root_cdeg_mean[col_i] \
+                                         if col_root_cdeg_mean[col_i] > 1e-5 else 0.
+            col_cdeg_min_ratio[col_i]  = col_cdeg_min[col_i]  / col_root_cdeg_min[col_i]  \
+                                         if col_root_cdeg_min[col_i]  > 1e-5 else 0.
+            col_cdeg_max_ratio[col_i]  = col_cdeg_max[col_i]  / col_root_cdeg_max[col_i]  \
+                                         if col_root_cdeg_max[col_i]  > 1e-5 else 0.
+
+        # Min/max for ratios of constraint coeffs. to RHS (4)
+        #   Minimum and maximum ratios across positive and negative right-hand-sides (RHS)
+            col_prhs_ratio_max[col_i], col_prhs_ratio_min[col_i] = -9999., 9999.
+            col_nrhs_ratio_max[col_i], col_nrhs_ratio_min[col_i] = -9999., 9999.
+            for neighbor_index in range(nb_neighbors):
+                coef = nonzero_coefs_raw[neighbor_index]
+                rhs = SCIProwGetRhs(neighbors[neighbor_index])
+                lhs = SCIProwGetLhs(neighbors[neighbor_index])
+                value = coef / REALABS(rhs)
+                if not SCIPisInfinity(scip, REALABS(rhs)):
+                    if rhs >= 0.:
+                        col_prhs_ratio_max[col_i] = max(col_prhs_ratio_max[col_i], value)
+                        col_prhs_ratio_min[col_i] = min(col_prhs_ratio_min[col_i], value)
+                    else:
+                        col_nrhs_ratio_max[col_i] = max(col_nrhs_ratio_max[col_i], -value)
+                        col_nrhs_ratio_min[col_i] = min(col_nrhs_ratio_min[col_i], -value)
+                if not SCIPisInfinity(scip, REALABS(lhs)):
+                    if -lhs >= 0.:
+                        col_prhs_ratio_max[col_i] = max(col_prhs_ratio_max[col_i], value)
+                        col_prhs_ratio_min[col_i] = min(col_prhs_ratio_min[col_i], value)
+                    else:
+                        col_nrhs_ratio_max[col_i] = max(col_nrhs_ratio_max[col_i], -value)
+                        col_nrhs_ratio_min[col_i] = min(col_nrhs_ratio_min[col_i], -value)
+            col_prhs_ratio_max[col_i] = col_prhs_ratio_max[col_i] if col_prhs_ratio_max[col_i] > -9999. else 1.
+            col_prhs_ratio_min[col_i] = col_prhs_ratio_min[col_i] if col_prhs_ratio_min[col_i] <  9999. else 0.
+            col_nrhs_ratio_max[col_i] = col_nrhs_ratio_max[col_i] if col_nrhs_ratio_max[col_i] > -9999. else 1.
+            col_nrhs_ratio_min[col_i] = col_nrhs_ratio_min[col_i] if col_nrhs_ratio_min[col_i] <  9999. else 0.
+
+        # Min/max for one-to-all coefficient ratios (8)
+        #   The statistics are over the ratios of a variable’s coefficient, to the sum over all
+        #   other variables’ coefficients,for a given constraint. Four versions of these ratios
+        #   are considered: positive (negative) coefficient to sum ofpositive (negative) coefficients
+            ota_pp_max, ota_pp_min, ota_pn_max, ota_pn_min = -9999., 9999., -9999., 9999.
+            ota_np_max, ota_np_min, ota_nn_max, ota_nn_min = -9999., 9999., -9999., 9999.
+            for neighbor_index in range(nb_neighbors):
+                all_coefs_raw = SCIProwGetVals(neighbors[neighbor_index])
+                neighbor_ncolumns = SCIProwGetNNonz(neighbors[neighbor_index])
+                pos_coef_sum, neg_coef_sum = 0., 0.
+                for neighbor_column_index in range(neighbor_ncolumns):
+                    neighbor_coef = all_coefs_raw[neighbor_column_index]
+                    if neighbor_coef > 0.:
+                        pos_coef_sum += neighbor_coef
+                    else:
+                        neg_coef_sum -= neighbor_coef
+
+                coef = nonzero_coefs_raw[neighbor_index]
+                pvalue = coef / pos_coef_sum if pos_coef_sum > 1e-5 else 0.
+                nvalue = coef / neg_coef_sum if neg_coef_sum > 1e-5 else 0.
+                if coef >= 0.:
+                    if pos_coef_sum > 0.:
+                        ota_pp_max, ota_pp_min = max(ota_pp_max, pvalue), min(ota_pp_min, pvalue)
+                    if neg_coef_sum < 0.:
+                        ota_pn_max, ota_pn_min = max(ota_pn_max, nvalue), min(ota_pn_min, nvalue)
+                else:
+                    if pos_coef_sum > 0.:
+                        ota_np_max, ota_np_min = max(ota_np_max, pvalue), min(ota_np_min, pvalue)
+                    if neg_coef_sum < 0.:
+                        ota_nn_max, ota_nn_min = max(ota_nn_max, nvalue), min(ota_nn_min, nvalue)
+            col_ota_pp_max[col_i] = ota_pp_max if ota_pp_max > -9999. else 1.
+            col_ota_pp_min[col_i] = ota_pp_min if ota_pp_min <  9999. else 0.
+            col_ota_pn_max[col_i] = ota_pn_max if ota_pn_max > -9999. else 1.
+            col_ota_pn_min[col_i] = ota_pn_min if ota_pn_min <  9999. else 0.
+            col_ota_np_max[col_i] = ota_np_max if ota_np_max > -9999. else 1.
+            col_ota_np_min[col_i] = ota_np_min if ota_np_min <  9999. else 0.
+            col_ota_nn_max[col_i] = ota_nn_max if ota_nn_max > -9999. else 1.
+            col_ota_nn_min[col_i] = ota_nn_min if ota_nn_min <  9999. else 0.
+
+        # Active dynamic
+        # --------------
+        # Stats. for active constraint coefficients (24)
+        #   An active constraint at a node LP is one which is binding with equality at the optimum.
+        #   We consider 4 weighting schemes for an active constraint: unit weight, inverse of the
+        #   sum of the coefficients of all variables in constraint, inverse of the sum of the coefficients
+        #   of only candidate variables in constraint, dual cost of the constraint. Given the absolute
+        #   value of the coefficients of xj in the active constraints, we compute the sum, mean, stdev.,
+        #   max. and min. of those values, for each of the weighting schemes. We also compute the weighted
+        #   number of active constraints that xj is in, with the same 4 weightings
+        cdef int row_index
+        cdef int nrows = SCIPgetNLPRows(scip)
+        cdef SCIP_ROW** rows = SCIPgetLPRows(scip)
+        cdef bint col_is_candidate
+        cdef float constraint_sum, abs_coef
+        cdef SCIP_COL** neighbor_columns
+        cdef int neighbor_var_index, candidate_index
+        cdef int active_count
+        cdef float acons_sum1, acons_mean1, acons_var1, acons_max1, acons_min1
+        cdef float acons_sum2, acons_mean2, acons_var2, acons_max2, acons_min2
+        cdef float acons_sum3, acons_mean3, acons_var3, acons_max3, acons_min3
+        cdef float acons_sum4, acons_mean4, acons_var4, acons_max4, acons_min4
+        cdef float acons_nb1, acons_nb2, acons_nb3, acons_nb4
+        cdef np.ndarray[np.float32_t, ndim=1] act_cons_w1, act_cons_w2, act_cons_w3, act_cons_w4
+
+        act_cons_w1 = np.zeros(shape=(nrows, ), dtype=np.float32)
+        act_cons_w2 = np.zeros(shape=(nrows, ), dtype=np.float32)
+        act_cons_w3 = np.zeros(shape=(nrows, ), dtype=np.float32)
+        act_cons_w4 = np.zeros(shape=(nrows, ), dtype=np.float32)
+        for row_index in range(nrows):
+            row = rows[row_index]
+            rhs = SCIProwGetRhs(row)
+            lhs = SCIProwGetLhs(row)
+            activity = SCIPgetRowActivity(scip, row)
+            # N.B. active if activity = lhs or rhs
+            if activity == rhs or activity == lhs:
+                neighbor_columns = SCIProwGetCols(row)
+                neighbor_ncolumns = SCIProwGetNNonz(row)
+                neighbor_columns_values = SCIProwGetVals(row)
+
+                # weight no. 1
+                # unit weight
+                act_cons_w1[row_index] = 1.
+
+                # weight no. 2
+                # inverse of the sum of the coefficients of all variables in constraint
+                constraint_sum = 0.
+                for neighbor_column_index in range(neighbor_ncolumns):
+                    constraint_sum += REALABS(neighbor_columns_values[neighbor_column_index])
+                act_cons_w2[row_index] = 1/constraint_sum if constraint_sum > 0 else 1.
+
+                # weight no. 3
+                # inverse of the sum of the coefficients of only candidate variables in constraint
+                constraint_sum = 0.
+                for neighbor_column_index in range(neighbor_ncolumns):
+                    neighbor_var = SCIPcolGetVar(neighbor_columns[neighbor_column_index])
+                    neighbor_var_index = SCIPvarGetIndex(neighbor_var)
+                    for candidate_index in range(nlpcands):
+                        if SCIPvarGetIndex(lpcands[candidate_index]) == neighbor_var_index:
+                            constraint_sum += REALABS(neighbor_columns_values[neighbor_column_index])
+                            break
+                act_cons_w3[row_index] = 1/constraint_sum if constraint_sum > 0 else 1.
+
+                # weight no. 4
+                # dual cost of the constraint
+                act_cons_w4[row_index] = SCIProwGetDualsol(row)
+
+        for col_i in range(ncands):
+            col = SCIPvarGetCol(lpcands[col_i])
+            var = lpcands[col_i]
+            neighbors = SCIPcolGetRows(col)
+            nb_neighbors = SCIPcolGetNNonz(col)
+            nonzero_coefs_raw = SCIPcolGetVals(col)
+
+            acons_sum1, acons_mean1, acons_var1, acons_max1, acons_min1 = 0., 0., 0., -9999., 9999.
+            acons_sum2, acons_mean2, acons_var2, acons_max2, acons_min2 = 0., 0., 0., -9999., 9999.
+            acons_sum3, acons_mean3, acons_var3, acons_max3, acons_min3 = 0., 0., 0., -9999., 9999.
+            acons_sum4, acons_mean4, acons_var4, acons_max4, acons_min4 = 0., 0., 0., -9999., 9999.
+            acons_sum5, acons_mean5, acons_var5, acons_max5, acons_min5 = 0., 0., 0., -9999., 9999.
+            acons_nb1,  acons_nb2,   acons_nb3,   acons_nb4             = 0., 0., 0., 0.
+            for neighbor_index in range(nb_neighbors):
+                rhs = SCIProwGetRhs(neighbors[neighbor_index])
+                lhs = SCIProwGetLhs(neighbors[neighbor_index])
+                activity = SCIPgetRowActivity(scip, neighbors[neighbor_index])
+                # N.B. active if activity = lhs or rhs
+                if activity == rhs or activity == lhs:
+                    active_count += 1
+                    neighbor_row_index = SCIProwGetLPPos(neighbors[neighbor_index])
+                    abs_coef = REALABS(nonzero_coefs_raw[neighbor_index])
+
+                    acons_nb1 += act_cons_w1[neighbor_row_index]
+                    value = act_cons_w1[neighbor_index] * abs_coef
+                    acons_sum1  += value
+                    if active_count > 1:
+                        acons_var1 = (active_count-2)/(active_count-1)*acons_var1 \
+                                     + (value - acons_mean1)**2/active_count
+                    acons_mean1 += (value - acons_mean1)/active_count
+                    acons_max1 = max(acons_max1, value)
+                    acons_min1 = min(acons_min1, value)
+
+                    acons_nb2 += act_cons_w2[neighbor_index]
+                    value = act_cons_w2[neighbor_index] * abs_coef
+                    acons_sum2  += value
+                    if active_count > 1:
+                        acons_var2 = (active_count-2)/(active_count-1)*acons_var2 \
+                                     + (value - acons_mean2)**2/active_count
+                    acons_mean2 += (value - acons_mean2)/active_count
+                    acons_max2 = max(acons_max2, value)
+                    acons_min2 = min(acons_min2, value)
+
+                    acons_nb3 += act_cons_w3[neighbor_index]
+                    value = act_cons_w3[neighbor_index] * abs_coef
+                    acons_sum3  += value
+                    if active_count > 1:
+                        acons_var3 = (active_count-2)/(active_count-1)*acons_var3 \
+                                     + (value - acons_mean3)**2/active_count
+                    acons_mean3 += (value - acons_mean3)/active_count
+                    acons_max3 = max(acons_max3, value)
+                    acons_min3 = min(acons_min3, value)
+
+                    acons_nb4 += act_cons_w4[neighbor_index]
+                    value = act_cons_w4[neighbor_index] * abs_coef
+                    acons_sum4  += value
+                    if active_count > 1:
+                        acons_var4 = (active_count-2)/(active_count-1)*acons_var4 \
+                                     + (value - acons_mean4)**2/active_count
+                    acons_mean4 += (value - acons_mean4)/active_count
+                    acons_max4 = max(acons_max4, value)
+                    acons_min4 = min(acons_min4, value)
+            col_acons_sum1[col_i]  = acons_sum1
+            col_acons_mean1[col_i] = acons_mean1
+            col_acons_var1[col_i]  = acons_var1
+            col_acons_max1[col_i]  = acons_max1 if acons_max1 > -9999. else 0.
+            col_acons_min1[col_i]  = acons_min1 if acons_min1 <  9999. else 0.
+            col_acons_sum2[col_i]  = acons_sum2
+            col_acons_mean2[col_i] = acons_mean2
+            col_acons_var2[col_i]  = acons_var2
+            col_acons_max2[col_i]  = acons_max2 if acons_max2 > -9999. else 0.
+            col_acons_min2[col_i]  = acons_min2 if acons_min2 <  9999. else 0.
+            col_acons_sum3[col_i]  = acons_sum3
+            col_acons_mean3[col_i] = acons_mean3
+            col_acons_var3[col_i]  = acons_var3
+            col_acons_max3[col_i]  = acons_max3 if acons_max3 > -9999. else 0.
+            col_acons_min3[col_i]  = acons_min3 if acons_min2 <  9999. else 0.
+            col_acons_sum4[col_i]  = acons_sum4
+            col_acons_mean4[col_i] = acons_mean4
+            col_acons_var4[col_i]  = acons_var4
+            col_acons_max4[col_i]  = acons_max4 if acons_max4 > -9999. else 0.
+            col_acons_min4[col_i]  = acons_min4 if acons_min2 <  9999. else 0.
+            col_acons_nb1[col_i]   = acons_nb1
+            col_acons_nb2[col_i]   = acons_nb2
+            col_acons_nb3[col_i]   = acons_nb3
+            col_acons_nb4[col_i]   = acons_nb4
+
+        return {
+            'coefs':                col_coefs,
+            'coefs_pos':            col_coefs_pos,
+            'coefs_neg':            col_coefs_neg,
+            'nnzrs':                col_nnzrs,
+            'root_cdeg_mean':       col_root_cdeg_mean,
+            'root_cdeg_var':        col_root_cdeg_var,
+            'root_cdeg_min':        col_root_cdeg_min,
+            'root_cdeg_max':        col_root_cdeg_max,
+            'root_pcoefs_count':    col_root_pcoefs_count,
+            'root_pcoefs_mean':     col_root_pcoefs_mean,
+            'root_pcoefs_var':      col_root_pcoefs_var,
+            'root_pcoefs_min':      col_root_pcoefs_min,
+            'root_pcoefs_max':      col_root_pcoefs_max,
+            'root_ncoefs_count':    col_root_ncoefs_count,
+            'root_ncoefs_mean':     col_root_ncoefs_mean,
+            'root_ncoefs_var':      col_root_ncoefs_var,
+            'root_ncoefs_min':      col_root_ncoefs_min,
+            'root_ncoefs_max':      col_root_ncoefs_max,
+            'solfracs':         col_solfracs,
+            'slack':            col_slack,
+            'ps_up':            col_ps_up,
+            'ps_down':          col_ps_down,
+            'ps_ratio':         col_ps_ratio,
+            'ps_sum':           col_ps_sum,
+            'ps_product':       col_ps_product,
+            'nb_up_infeas':     col_nb_up_infeas,
+            'nb_down_infeas':   col_nb_down_infeas,
+            'frac_up_infeas':   col_frac_up_infeas,
+            'frac_down_infeas': col_frac_down_infeas,
+            'cdeg_mean':        col_cdeg_mean,
+            'cdeg_var':         col_cdeg_var,
+            'cdeg_min':         col_cdeg_min,
+            'cdeg_max':         col_cdeg_max,
+            'cdeg_mean_ratio':  col_cdeg_mean_ratio,
+            'cdeg_min_ratio':   col_cdeg_min_ratio,
+            'cdeg_max_ratio':   col_cdeg_max_ratio,
+            'prhs_ratio_max':   col_prhs_ratio_max,
+            'prhs_ratio_min':   col_prhs_ratio_min,
+            'nrhs_ratio_max':   col_nrhs_ratio_max,
+            'nrhs_ratio_min':   col_nrhs_ratio_min,
+            'ota_pp_max':       col_ota_pp_max,
+            'ota_pp_min':       col_ota_pp_min,
+            'ota_pn_max':       col_ota_pn_max,
+            'ota_pn_min':       col_ota_pn_min,
+            'ota_np_max':       col_ota_np_max,
+            'ota_np_min':       col_ota_np_min,
+            'ota_nn_max':       col_ota_nn_max,
+            'ota_nn_min':       col_ota_nn_min,
+            'acons_sum1':       col_acons_sum1,
+            'acons_mean1':      col_acons_mean1,
+            'acons_var1':       col_acons_var1,
+            'acons_max1':       col_acons_max1,
+            'acons_min1':       col_acons_min1,
+            'acons_sum2':       col_acons_sum2,
+            'acons_mean2':      col_acons_mean2,
+            'acons_var2':       col_acons_var2,
+            'acons_max2':       col_acons_max2,
+            'acons_min2':       col_acons_min2,
+            'acons_sum3':       col_acons_sum3,
+            'acons_mean3':      col_acons_mean3,
+            'acons_var3':       col_acons_var3,
+            'acons_max3':       col_acons_max3,
+            'acons_min3':       col_acons_min3,
+            'acons_sum4':       col_acons_sum4,
+            'acons_mean4':      col_acons_mean4,
+            'acons_var4':       col_acons_var4,
+            'acons_max4':       col_acons_max4,
+            'acons_min4':       col_acons_min4,
+            'acons_nb1':        col_acons_nb1,
+            'acons_nb2':        col_acons_nb2,
+            'acons_nb3':        col_acons_nb3,
+            'acons_nb4':        col_acons_nb4,
         }
 
     def getSolvingStats(self):

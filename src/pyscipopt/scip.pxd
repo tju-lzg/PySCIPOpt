@@ -700,6 +700,7 @@ cdef extern from "scip/scip.h":
     const char* SCIPvarGetName(SCIP_VAR* var)
     int SCIPgetNVars(SCIP* scip)
     int SCIPgetNOrigVars(SCIP* scip)
+    int SCIPvarCompare(SCIP_VAR *var1, SCIP_VAR *var2)
     SCIP_VARTYPE SCIPvarGetType(SCIP_VAR* var)
     SCIP_Bool SCIPvarIsBinary(SCIP_VAR *var)
     SCIP_Bool SCIPvarIsIntegral(SCIP_VAR * var)
@@ -719,6 +720,9 @@ cdef extern from "scip/scip.h":
     SCIP_VARDATA* SCIPvarGetData(SCIP_VAR* var)
     SCIP_Real SCIPvarGetAvgSol(SCIP_VAR* var)
     int SCIPvarGetIndex(SCIP_VAR* var)
+    SCIP_Real SCIPgetVarPseudocost(SCIP* scip, SCIP_VAR *var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPvarGetCutoffSum(SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Longint SCIPvarGetNBranchings(SCIP_VAR* var, SCIP_BRANCHDIR dir)
 
     # SCIP_DOMCHG Methods
     int SCIPdomchgGetNBoundchgs(SCIP_DOMCHG* domchg)
@@ -1697,6 +1701,10 @@ cdef extern from "scip/pub_lp.h":
     SCIP_Real SCIPcolGetPrimsol(SCIP_COL* col)
     SCIP_Real SCIPcolGetLb(SCIP_COL* col)
     SCIP_Real SCIPcolGetUb(SCIP_COL* col)
+    int SCIPcolGetNLPNonz(SCIP_COL* col)
+    int SCIPcolGetNNonz(SCIP_COL* col)
+    SCIP_ROW** SCIPcolGetRows(SCIP_COL* col)
+    SCIP_Real* SCIPcolGetVals(SCIP_COL* col)
 
 cdef extern from "scip/lp.h":
     SCIP_Real SCIPlpGetObjNorm(SCIP_LP* lp)
@@ -1773,6 +1781,12 @@ cdef extern from "scip/type_history.h":
         SCIP_Longint    nactiveconflicts [2]
         SCIP_Longint    nbranchings [2]
         SCIP_Longint    branchdepthsum [2]
+
+    ctypedef enum SCIP_BRANCHDIR:
+        SCIP_BRANCHDIR_DOWNWARDS = 0
+        SCIP_BRANCHDIR_UPWARDS   = 1
+        SCIP_BRANCHDIR_FIXED     = 2
+        SCIP_BRANCHDIR_AUTO      = 3
 
 cdef extern from "scip/struct_stat.h":
     ctypedef struct SCIP_STAT:
