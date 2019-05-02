@@ -4545,14 +4545,14 @@ cdef class Model:
 
             # Min/max for ratios of constraint coeffs. to RHS (4)
             #   Minimum and maximum ratios across positive and negative right-hand-sides (RHS)
-            prhs_ratio_max, prhs_ratio_min = 0, 1
-            nrhs_ratio_max, nrhs_ratio_min = 0, 1
+            prhs_ratio_max, prhs_ratio_min = -1, 1
+            nrhs_ratio_max, nrhs_ratio_min = -1, 1
             for neighbor_index in range(nb_neighbors):
                 coef = nonzero_coefs_raw[neighbor_index]
                 rhs = SCIProwGetRhs(neighbors[neighbor_index])
                 lhs = SCIProwGetLhs(neighbors[neighbor_index])
                 if not SCIPisInfinity(scip, REALABS(rhs)):
-                    value = 0 if coef == 0 else coef / (coef + rhs)
+                    value = 0 if coef == 0 else coef / (REALABS(coef) + REALABS(rhs))
                     if rhs >= 0:
                         rhs_ratio_max = max(prhs_ratio_max, value)
                         rhs_ratio_min = min(prhs_ratio_min, value)
@@ -4560,7 +4560,7 @@ cdef class Model:
                         nrhs_ratio_max = max(nrhs_ratio_max, value)
                         nrhs_ratio_min = min(nrhs_ratio_min, value)
                 if not SCIPisInfinity(scip, REALABS(lhs)):
-                    value = 0 if coef == 0 else coef / (coef + lhs)
+                    value = 0 if coef == 0 else coef / (REALABS(coef) + REALABS(lhs))
                     if -lhs >= 0:
                         prhs_ratio_max = max(prhs_ratio_max, value)
                         prhs_ratio_min = min(prhs_ratio_min, value)
