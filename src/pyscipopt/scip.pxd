@@ -1706,6 +1706,7 @@ cdef extern from "scip/pub_lp.h":
     int SCIPcolGetNNonz(SCIP_COL* col)
     SCIP_ROW** SCIPcolGetRows(SCIP_COL* col)
     SCIP_Real* SCIPcolGetVals(SCIP_COL* col)
+    int SCIPcolGetIndex(SCIP_COL* col)
 
 cdef extern from "scip/lp.h":
     SCIP_Real SCIPlpGetObjNorm(SCIP_LP* lp)
@@ -1782,12 +1783,6 @@ cdef extern from "scip/type_history.h":
         SCIP_Longint    nactiveconflicts [2]
         SCIP_Longint    nbranchings [2]
         SCIP_Longint    branchdepthsum [2]
-
-    ctypedef enum SCIP_BRANCHDIR:
-        SCIP_BRANCHDIR_DOWNWARDS = 0
-        SCIP_BRANCHDIR_UPWARDS   = 1
-        SCIP_BRANCHDIR_FIXED     = 2
-        SCIP_BRANCHDIR_AUTO      = 3
 
 cdef extern from "scip/struct_stat.h":
     ctypedef struct SCIP_STAT:
