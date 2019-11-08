@@ -4547,7 +4547,7 @@ cdef class Model:
             cand_cdeg_var[cand_i]  = cdeg_var
             cand_cdeg_min[cand_i]  = cdeg_min
             cand_cdeg_max[cand_i]  = cdeg_max
-            cand_cdeg_mean_ratio[cand_i] = cdeg_mean / (cand_root_cdeg_mean[cand_i] + cdeg_mean)
+            cand_cdeg_mean_ratio[cand_i] = 0 if cdeg_mean == 0 else cdeg_mean / (cand_root_cdeg_mean[cand_i] + cdeg_mean)
             cand_cdeg_min_ratio[cand_i]  = 0 if cdeg_min == 0 else cdeg_min / (cand_root_cdeg_min[cand_i] + cdeg_min)
             cand_cdeg_max_ratio[cand_i]  = 0 if cdeg_max == 0 else cdeg_max / (cand_root_cdeg_max[cand_i] + cdeg_max)
 
