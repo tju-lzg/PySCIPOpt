@@ -473,6 +473,8 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPaddOrigObjoffset(SCIP* scip, SCIP_Real addval)
     SCIP_Real SCIPgetOrigObjoffset(SCIP* scip)
     SCIP_Real SCIPgetTransObjoffset(SCIP* scip)
+    SCIP_Real SCIPgetOrigObjscale(SCIP* scip)
+    SCIP_Real SCIPgetTransObjscale(SCIP* scip)
     SCIP_RETCODE SCIPsetPresolving(SCIP* scip, SCIP_PARAMSETTING paramsetting, SCIP_Bool quiet)
     SCIP_RETCODE SCIPsetSeparating(SCIP* scip, SCIP_PARAMSETTING paramsetting, SCIP_Bool quiet)
     SCIP_RETCODE SCIPsetHeuristics(SCIP* scip, SCIP_PARAMSETTING paramsetting, SCIP_Bool quiet)
@@ -555,6 +557,7 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPvarGetLPSol(SCIP_VAR* var)
     int SCIPvarGetIndex(SCIP_VAR* var)
     SCIP_Longint SCIPvarGetNBranchingsCurrentRun(SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetVarPseudocostScore(SCIP* scip, SCIP_VAR* var, SCIP_Real solval)
     SCIP_Real SCIPgetVarPseudocostScoreCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_Real solval)
     SCIP_Real SCIPgetVarPseudocostCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPgetVarPseudocostCountCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
@@ -573,14 +576,23 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPvarGetNBdchgInfosLb(SCIP_VAR* var)
     SCIP_Real SCIPvarGetNBdchgInfosUb(SCIP_VAR* var)
     SCIP_Real SCIPvarGetAvgSol(SCIP_VAR* var)
+    SCIP_Real SCIPgetVarConflictScore(SCIP* scip, SCIP_VAR* var)
     SCIP_Real SCIPgetVarConflictScoreCurrentRun(SCIP* scip, SCIP_VAR* var)
     SCIP_Real SCIPgetVarAvgInferencesCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPvarGetPseudocost(SCIP_VAR* var, SCIP_STAT* stat, SCIP_Real solvaldelta)
     SCIP_Real SCIPvarGetPseudocostVariance(SCIP_VAR* var, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun)
+    SCIP_Real SCIPgetVarConflictlengthScore(SCIP* scip, SCIP_VAR* var)
     SCIP_Real SCIPgetVarConflictlengthScoreCurrentRun(SCIP* scip, SCIP_VAR* var)
     SCIP_Real SCIPgetVarAvgConflictlengthCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPgetVarVSIDSCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetVarAvgInferenceScore(SCIP* scip, SCIP_VAR* var)
     SCIP_Real SCIPgetVarAvgInferenceScoreCurrentRun(SCIP* scip, SCIP_VAR* var)
+    SCIP_Real SCIPgetVarAvgCutoffScore(SCIP* scip, SCIP_VAR* var)
+    SCIP_Real SCIPgetVarAvgCutoffScoreCurrentRun(SCIP* scip, SCIP_VAR* var)
+    
+    
+    
+    
     SCIP_Real SCIPgetVarAvgCutoffsCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPgetVarAvgCutoffScoreCurrentRun(SCIP* scip, SCIP_VAR* var)  # in version 6.0 SCIPgetVarAvgCutoffScoreCurrentRun also takes SCIP_BRANCHDIR in input
     int SCIPgetNBinVars(SCIP* scip)
@@ -984,9 +996,11 @@ cdef extern from "scip/scip.h":
     SCIP_Longint SCIPgetNLPIterations(SCIP* scip)
     SCIP_Longint SCIPgetNNodeLPs(SCIP* scip)
     SCIP_Longint SCIPgetNRootLPIterations(SCIP* scip)
+    SCIP_Longint SCIPgetNConflictConssApplied(SCIP* scip)
     int SCIPgetMaxDepth(SCIP* scip)
     SCIP_Longint SCIPgetNBacktracks(SCIP* scip)
     int SCIPgetNActiveConss(SCIP* scip)
+    int SCIPgetNEnabledConss(SCIP* scip)
     SCIP_Real SCIPgetAvgDualbound(SCIP* scip)
     SCIP_Real SCIPgetAvgLowerbound(SCIP* scip)
     SCIP_Real SCIPgetLowerbound(SCIP* scip)
@@ -1000,11 +1014,19 @@ cdef extern from "scip/scip.h":
     SCIP_Longint SCIPgetNBestSolsFound(SCIP* scip)
     SCIP_Real SCIPgetAvgPseudocostCountCurrentRun(SCIP* scip, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPgetPseudocostCount(SCIP* scip, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun)
+    SCIP_Real SCIPgetAvgPseudocostScore(SCIP* scip)
     SCIP_Real SCIPgetAvgPseudocostScoreCurrentRun(SCIP* scip)
     SCIP_Real SCIPgetPseudocostVariance(SCIP* scip, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun)
-    # todo: possibly add on inference, conflict, ...
+    SCIP_Real SCIPgetAvgConflictScore(SCIP* scip)
+    SCIP_Real SCIPgetAvgConflictScoreCurrentRun(SCIP* scip)
+    SCIP_Real SCIPgetAvgConflictlengthScore(SCIP* scip)
+    SCIP_Real SCIPgetAvgConflictlengthScoreCurrentRun(SCIP* scip)
+    SCIP_Real SCIPgetAvgInferenceScore(SCIP* scip)
+    SCIP_Real SCIPgetAvgInferenceScoreCurrentRun(SCIP* scip)
     SCIP_Real SCIPgetAvgCutoffsCurrentRun(SCIP* scip, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetAvgCutoffScore(SCIP* scip)
     SCIP_Real SCIPgetAvgCutoffScoreCurrentRun(SCIP* scip)
+    SCIP_Real SCIPgetAvgInferences(SCIP* scip, SCIP_BRANCHDIR dir)
 
 
     # Parameter Functions
@@ -1021,7 +1043,6 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPresetParam(SCIP* scip, const char* name)
     SCIP_RETCODE SCIPresetParams(SCIP* scip)
     SCIP_PARAM* SCIPgetParam(SCIP* scip,  const char*  name)
-
 
 
     # LPI Functions
