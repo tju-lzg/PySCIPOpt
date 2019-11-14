@@ -1024,6 +1024,7 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPgetAvgInferenceScore(SCIP* scip)
     SCIP_Real SCIPgetAvgInferenceScoreCurrentRun(SCIP* scip)
     SCIP_Real SCIPgetAvgCutoffsCurrentRun(SCIP* scip, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetAvgCutoffs(SCIP* scip, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPgetAvgCutoffScore(SCIP* scip)
     SCIP_Real SCIPgetAvgCutoffScoreCurrentRun(SCIP* scip)
     SCIP_Real SCIPgetAvgInferences(SCIP* scip, SCIP_BRANCHDIR dir)
