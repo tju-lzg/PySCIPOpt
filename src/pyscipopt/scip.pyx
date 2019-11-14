@@ -3171,15 +3171,16 @@ cdef class Model:
         node_state_view[3] = self.relDistance(SCIPgetLowerbound(self._scip), SCIPgetLPObjval(self._scip))
         node_state_view[4] = self.relDistance(SCIPgetLowerboundRoot(self._scip), SCIPgetLPObjval(self._scip))
         if SCIPisInfinity(self._scip, SCIPgetUpperbound(self._scip)):
-            node_state_view[5] = 0.
+            node_state_view[5:7] = 0.
         else:
             node_state_view[5] = self.relDistance(SCIPgetUpperbound(self._scip), SCIPgetLPObjval(self._scip))
+            node_state_view[6] = self.relPosition(node_bound=SCIPgetLPObjval(self._scip), ub=SCIPgetUpperbound(self._scip), lb=SCIPgetLowerbound(self._scip)) 
         
         # candidate set, variables and constraints
-        node_state_view[6] = float(len(self.getLPBranchCands())) / self.getNDiscreteVars()
-        node_state_view[7] = float(SCIPgetNFixedVars(self._scip)) / SCIPgetNVars(self._scip) # constant throughout same model
-        node_state_view[8] = float(nboundchgs) / SCIPgetNVars(self._scip)
-        node_state_view[9] = float(SCIPgetNEnabledConss(self._scip)) / SCIPgetNConss(self._scip)
+        node_state_view[7] = float(len(self.getLPBranchCands())) / self.getNDiscreteVars()
+        node_state_view[8] = float(SCIPgetNFixedVars(self._scip)) / SCIPgetNVars(self._scip) # constant throughout same model
+        node_state_view[9] = float(nboundchgs) / SCIPgetNVars(self._scip)
+        node_state_view[10] = float(SCIPgetNEnabledConss(self._scip)) / SCIPgetNConss(self._scip)
         
         return node_state
     
@@ -3341,6 +3342,7 @@ cdef class Model:
             mip_state_view[25] = 0.
         else:
             mip_state_view[25] = self.relDistance(SCIPgetUpperbound(self._scip), SCIPgetLowerbound(self._scip)) # zero until UB is available
+            # removed: self.relPosition(node_bound=SCIPgetAvgLowerbound(self._scip), ub=SCIPgetUpperbound(self._scip), lb=SCIPgetLowerbound(self._scip)) 
 
         mip_state_view[26] = float(SCIPisPrimalboundSol(self._scip))
         if isRoot:
@@ -3385,38 +3387,41 @@ cdef class Model:
             mip_state_view[41] = float(len(np.argwhere(open_lowerbounds == np.min(open_lowerbounds)))) / len(open_lowerbounds) 
             mip_state_view[42] = float(len(np.argwhere(open_lowerbounds == np.max(open_lowerbounds)))) / len(open_lowerbounds)
             mip_state_view[43] = self.relDistance(SCIPgetLowerbound(self._scip), np.max(open_lowerbounds))
-            mip_state_view[44] = self.relDistance(np.min(open_lowerbounds), np.max(open_lowerbounds))
+            mip_state_view[44] = self.relDistance(np.min(open_lowerbounds), np.max(open_lowerbounds)) # same as 44?
             if SCIPisInfinity(self._scip, SCIPgetUpperbound(self._scip)):
-                mip_state_view[45:47] = 0.
+                mip_state_view[45:50] = 0.
             else:
                 mip_state_view[45] = self.relDistance(np.min(open_lowerbounds), SCIPgetUpperbound(self._scip))
                 mip_state_view[46] = self.relDistance(np.max(open_lowerbounds), SCIPgetUpperbound(self._scip))
+                mip_state_view[47] = self.relPosition(node_bound=np.mean(open_lowerbounds), ub=SCIPgetUpperbound(self._scip), lb=SCIPgetLowerbound(self._scip)) # check
+                mip_state_view[48] = self.relPosition(node_bound=np.min(open_lowerbounds), ub=SCIPgetUpperbound(self._scip), lb=SCIPgetLowerbound(self._scip)) # check
+                mip_state_view[49] = self.relPosition(node_bound=np.max(open_lowerbounds), ub=SCIPgetUpperbound(self._scip), lb=SCIPgetLowerbound(self._scip)) # check
             
             lb_q1 = np.quantile(open_lowerbounds, 0.25)
             lb_q3 = np.quantile(open_lowerbounds, 0.75)
-            mip_state_view[47] = self.relDistance(lb_q1, lb_q3) # new!
+            mip_state_view[50] = self.relDistance(lb_q1, lb_q3) # new!
             if np.mean(open_lowerbounds) == 0:
-                mip_state_view[48] = 0.
+                mip_state_view[51] = 0.
             else: 
-                mip_state_view[48] = np.std(open_lowerbounds)/np.mean(open_lowerbounds) # new! coefficient of variation
+                mip_state_view[51] = np.std(open_lowerbounds)/np.mean(open_lowerbounds) # new! coefficient of variation
             if lb_q1 + lb_q3 == 0:
-                mip_state_view[49] = 0.
+                mip_state_view[52] = 0.
             else:
-                mip_state_view[49] = (lb_q3 - lb_q1)/(lb_q3 + lb_q1) # new! quartile coefficient of dispersion
+                mip_state_view[52] = (lb_q3 - lb_q1)/(lb_q3 + lb_q1) # new! quartile coefficient of dispersion
                
             # depths
             d_q1 = np.quantile(open_depths, 0.25)
             d_q3 = np.quantile(open_depths, 0.75)
-            mip_state_view[50] = float(np.mean(open_depths)) / SCIPgetMaxDepth(self._scip)
-            mip_state_view[51] = self.relDistance(d_q1, d_q3) # new! check
+            mip_state_view[53] = float(np.mean(open_depths)) / SCIPgetMaxDepth(self._scip)
+            mip_state_view[54] = self.relDistance(d_q1, d_q3) # new! check 
             if np.mean(open_depths) == 0:
-                mip_state_view[52] = 0.
+                mip_state_view[55] = 0.
             else: 
-                mip_state_view[52] = np.std(open_depths)/np.mean(open_depths) # new! coefficient of variation
+                mip_state_view[55] = np.std(open_depths)/np.mean(open_depths) # new! coefficient of variation
             if d_q1 + d_q3 == 0:
-                mip_state_view[53] = 0.
+                mip_state_view[56] = 0.
             else:
-                mip_state_view[53] = (d_q3 - d_q1)/(d_q3 + d_q1) # new! quartile coefficient of dispersion
+                mip_state_view[56] = (d_q3 - d_q1)/(d_q3 + d_q1) # new! quartile coefficient of dispersion
         else:
             mip_state_view[41:] = 0.
         
