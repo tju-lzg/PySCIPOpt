@@ -960,6 +960,8 @@ cdef extern from "scip/scip.h":
     SCIP_BRANCHRULE* SCIPfindBranchrule(SCIP*        scip,
                                         const char*  name)
     SCIP_Real SCIPgetBranchingPoint(SCIP* scip, SCIP_VAR* var, SCIP_Real suggestion)
+    SCIP_Longint SCIPbranchruleGetNCutoffs(SCIP_BRANCHRULE* branchrule)
+    SCIP_Longint SCIPbranchruleGetNDomredsFound(SCIP_BRANCHRULE* branchrule)
 
     # Numerical Methods
     SCIP_Real SCIPinfinity(SCIP* scip)
