@@ -305,8 +305,6 @@ cdef extern from "scip/scip.h":
     ctypedef struct SCIP_NODE:
         SCIP_Real lowerbound
         int depth
-        # TODO: add here parent #iinf?
-
 
     ctypedef struct SCIP_NODESEL:
         pass
@@ -556,6 +554,7 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPvarGetObj(SCIP_VAR* var)
     SCIP_Real SCIPvarGetLPSol(SCIP_VAR* var)
     int SCIPvarGetIndex(SCIP_VAR* var)
+    SCIP_Longint SCIPvarGetNBranchings(SCIP_VAR* var, SCIP_BRANCHDIR dir)
     SCIP_Longint SCIPvarGetNBranchingsCurrentRun(SCIP_VAR* var, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPgetVarPseudocostScore(SCIP* scip, SCIP_VAR* var, SCIP_Real solval)
     SCIP_Real SCIPgetVarPseudocostScoreCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_Real solval)
@@ -589,18 +588,24 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPgetVarAvgInferenceScoreCurrentRun(SCIP* scip, SCIP_VAR* var)
     SCIP_Real SCIPgetVarAvgCutoffScore(SCIP* scip, SCIP_VAR* var)
     SCIP_Real SCIPgetVarAvgCutoffScoreCurrentRun(SCIP* scip, SCIP_VAR* var)
-    
-    
-    
-    
     SCIP_Real SCIPgetVarAvgCutoffsCurrentRun(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetVarAvgCutoffs(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPgetVarAvgCutoffScoreCurrentRun(SCIP* scip, SCIP_VAR* var)  # in version 6.0 SCIPgetVarAvgCutoffScoreCurrentRun also takes SCIP_BRANCHDIR in input
+    SCIP_Real SCIPgetVarPseudocost(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetVarPseudocostCount(SCIP* scip, SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPvarGetCutoffSum(SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPvarGetCutoffSumCurrentRun(SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPvarGetInferenceSum(SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPvarGetInferenceSumCurrentRun(SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    
     int SCIPgetNBinVars(SCIP* scip)
     int SCIPgetNIntVars(SCIP* scip)
     int SCIPgetNImplVars(SCIP* scip)
     int SCIPgetNContVars(SCIP* scip)
     int SCIPgetNFixedVars(SCIP* scip)
-
+    int SCIPgetNCliques(SCIP* scip)
+    int SCIPgetNCliquesCreated(SCIP* scip)
+    
     # SCIP_DOMCHG Methods
     int SCIPdomchgGetNBoundchgs(SCIP_DOMCHG* domchg)
     SCIP_BOUNDCHG* SCIPdomchgGetBoundchg(SCIP_DOMCHG* domchg, int pos)
@@ -705,6 +710,7 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPgetDualbound(SCIP* scip)
     SCIP_Real SCIPgetDualboundRoot(SCIP* scip)
     SCIP_Real SCIPgetVarRedcost(SCIP* scip, SCIP_VAR* var)
+    SCIP_Real SCIPgetVarImplRedcost(SCIP* scip, SCIP_VAR* var, SCIP_Bool varfixing)
 
     # Reader plugin
     SCIP_RETCODE SCIPincludeReader(SCIP* scip,
@@ -1014,6 +1020,7 @@ cdef extern from "scip/scip.h":
     SCIP_Longint SCIPgetNSolsFound(SCIP* scip)
     SCIP_Longint SCIPgetNLimSolsFound(SCIP* scip)
     SCIP_Longint SCIPgetNBestSolsFound(SCIP* scip)
+    SCIP_Real SCIPgetAvgPseudocostCount(SCIP* scip, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPgetAvgPseudocostCountCurrentRun(SCIP* scip, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPgetPseudocostCount(SCIP* scip, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun)
     SCIP_Real SCIPgetAvgPseudocostScore(SCIP* scip)
@@ -1478,7 +1485,6 @@ cdef extern from "scip/struct_stat.h":
     ctypedef struct SCIP_STAT:
         SCIP_HISTORY * 	glbhistory
         SCIP_HISTORY * 	glbhistorycrun
-        # SCIP_REGRESSION * scipregression
         SCIP_Longint    ninternalnodes
         SCIP_Longint    ncreatednodes
         SCIP_Longint 	ncreatednodesrun
@@ -1515,8 +1521,6 @@ cdef extern from "scip/struct_stat.h":
         SCIP_Real rootlpbestestimate
 
 cdef extern from "scip/type_misc.h":
-    # ctypedef struct SCIP_REGRESSION:
-    #     SCIP_REGRESSION * scipregression
 
     ctypedef enum SCIP_CONFIDENCELEVEL:
         SCIP_CONFIDENCELEVEL_MIN        = 0

@@ -3121,7 +3121,7 @@ cdef class Model:
         else:
             return np.abs(ub - node_bound) / np.abs(ub -lb)
     
-    # this is a static function really
+    # static
     def relDistance(self, x, y):
         """Relative distance between x and y
         """
@@ -3130,19 +3130,27 @@ cdef class Model:
         else:
             return np.abs(x-y) / np.max([np.abs(x), np.abs(y), 1e-10])
     
-    # this is a static function really        
+    # static
     def gNormMax(self, x):
         """Normalizer function g(x) (cf. TA PhD Thesis)
         """
         gx = x/(x+1.)
         return np.max([gx, 0.1])
         
+    # static
+    def getVarScore(self, varscore, avgscore):
+        """Returns a branching variable score with respect to the average one.
+        (cf. relpscost formula as in calcScore https://scip.zib.de/doc-6.0.0/html/branch__relpscost_8c_source.php#l00347)
+        """
+        maxavg = np.max([avgscore, 0.1])
+        return 1 - (1 / (1 + varscore / maxavg))
+        
     def getFairNNodes(self, brancher_name):
         """Returns the number of fair nodes for branching rule brancher_name.
         """
         brancher = SCIPfindBranchrule(self._scip, brancher_name)
         fair = SCIPgetNNodes(self._scip) + 2*SCIPbranchruleGetNCutoffs(brancher) + 2*SCIPbranchruleGetNDomredsFound(brancher)
-        return fair
+        return fair    
         
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -3357,10 +3365,105 @@ cdef class Model:
         
         return mip_state
         
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def getCandsState(self, var_dim, branch_count):
+        """Get candidate variables state representation.
+        -------
+        :param var_dim: dimensionality of candidate variables state representation.
+        :param branch_count: counter of number of branchings performed.
+        """
+        # get candidate variables
+        cdef SCIP_VAR** lpcands
+        cdef SCIP_Real* lpcandssol
+        cdef SCIP_Real* lpcandsfrac
+        cdef SCIP_STAT* stat = self._scip.stat
+        cdef int nlpcands
+        cdef int npriolpcands
+        cdef int nfracimplvars
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &lpcands, &lpcandssol, &lpcandsfrac, &nlpcands, &npriolpcands, &nfracimplvars))
+
+        cands_state_mat = np.empty((nlpcands, var_dim), dtype=np.double)
+        cdef double[:, ::1] cands_state_mat_view = cands_state_mat  # C-view contiguous
+        cdef size_t i = 0
+    
+        for i in range(nlpcands):
+            # general solution
+            cands_state_mat_view[i][0] = lpcandsfrac[i] # same as SCIPvarGetLPSol
+            cands_state_mat_view[i][1] = SCIPvarGetAvgSol(lpcands[i]) # across feasible primal solutions, weighted? initialization?
+            # branching stats
+            if SCIPgetMaxDepth(self._scip) == 0:
+                cands_state_mat_view[i][2:4] = 0.
+            else:
+                cands_state_mat_view[i][2] = 1 - (SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS) / SCIPgetMaxDepth(self._scip)) # ask Jason, like this could be <0 (cf. debug)
+                cands_state_mat_view[i][3] = 1 - (SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) / SCIPgetMaxDepth(self._scip))
+            
+            # branching scores (cf. relpscost formula https://scip.zib.de/doc-6.0.0/html/branch__relpscost_8c_source.php#l00524 )
+            cands_state_mat_view[i][4] = self.getVarScore(SCIPgetVarConflictScore(self._scip, lpcands[i]), SCIPgetAvgConflictScore(self._scip))
+            cands_state_mat_view[i][5] = self.getVarScore(SCIPgetVarConflictlengthScore(self._scip, lpcands[i]), SCIPgetAvgConflictlengthScore(self._scip))
+            cands_state_mat_view[i][6] = self.getVarScore(SCIPgetVarAvgInferenceScore(self._scip, lpcands[i]), SCIPgetAvgInferenceScore(self._scip))
+            cands_state_mat_view[i][7] = self.getVarScore(SCIPgetVarAvgCutoffScore(self._scip, lpcands[i]), SCIPgetAvgCutoffScore(self._scip))
+            cands_state_mat_view[i][8] = self.getVarScore(SCIPgetVarPseudocostScore(self._scip, lpcands[i], lpcandssol[i]), SCIPgetAvgPseudocostScore(self._scip))
+            
+            # other on pc (counts and uses)
+            if SCIPgetPseudocostCount(self._scip, SCIP_BRANCHDIR_UPWARDS, 1) == 0:
+                cands_state_mat_view[i][9] = 0.
+            else:
+                cands_state_mat_view[i][9] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) / SCIPgetPseudocostCount(self._scip, SCIP_BRANCHDIR_UPWARDS, 1)
+            if SCIPgetPseudocostCount(self._scip, SCIP_BRANCHDIR_DOWNWARDS, 1) == 0:
+                cands_state_mat_view[i][10] = 0.
+            else: 
+                cands_state_mat_view[i][10] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) / SCIPgetPseudocostCount(self._scip, SCIP_BRANCHDIR_DOWNWARDS, 1)
+            
+            if SCIPvarGetNBranchingsCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS) == 0:
+                cands_state_mat_view[i][11] = 0.
+            else:
+                cands_state_mat_view[i][11] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) / SCIPvarGetNBranchingsCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            if SCIPvarGetNBranchingsCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) == 0:
+                cands_state_mat_view[i][12] = 0.
+            else:
+                cands_state_mat_view[i][12] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) / SCIPvarGetNBranchingsCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) # can be > 1 for relpscost, remove? (think about data collection)
+            
+            if branch_count == 0:
+                cands_state_mat_view[i][13:15] = 0.
+            else:
+                cands_state_mat_view[i][13] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) / branch_count # maybe remove
+                cands_state_mat_view[i][14] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) / branch_count
+            # other roles/effects
+            # implications
+            cands_state_mat_view[i][15] = SCIPvarGetNImpls(lpcands[i], 0) # maybe remove? check: in [0, 2] (random) but nonzero for very few cases
+            cands_state_mat_view[i][16] = SCIPvarGetNImpls(lpcands[i], 1) # maybe remove? check
+            # cliques
+            if SCIPgetNCliques(self._scip) == 0:
+                cands_state_mat_view[i][17:19] = 0.
+            else:
+                cands_state_mat_view[i][17] = SCIPvarGetNCliques(lpcands[i], 0) / SCIPgetNCliques(self._scip) # now always 0? note that SCIPgetNCliques(self._scip) is not always 0
+                cands_state_mat_view[i][18] = SCIPvarGetNCliques(lpcands[i], 1) / SCIPgetNCliques(self._scip) # now always 0?
+            # cutoffs
+            cands_state_mat_view[i][19] = self.gNormMax(SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)) # check, seems ok, applied g norm to be sure
+            cands_state_mat_view[i][20] = self.gNormMax(SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)) # check, seems ok, applied g norm to be sure
+            # conflict length
+            cands_state_mat_view[i][21] = self.gNormMax(SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)) # check, seems ok, applied g norm to be sure
+            cands_state_mat_view[i][22] = self.gNormMax(SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)) # check, seems ok, applied g norm to be sure
+            # inferences
+            cands_state_mat_view[i][23] = self.gNormMax(SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)) # needs g norm
+            cands_state_mat_view[i][24] = self.gNormMax(SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)) # needs g norm
+            
+            # debug (remove)
+            cands_state_mat_view[i][25] = SCIPgetNCliques(self._scip)
+            cands_state_mat_view[i][26] = SCIPgetNCliquesCreated(self._scip)
+            if SCIPgetMaxDepth(self._scip) == 0:
+                cands_state_mat_view[i][27:29] = 0.
+            else:
+                cands_state_mat_view[i][27] = SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS) / SCIPgetMaxDepth(self._scip)
+                cands_state_mat_view[i][28] = SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) / SCIPgetMaxDepth(self._scip)
+        
+        return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)], cands_state_mat
+
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def getCandsState(self, var_dim):
+    def getCandsStateOLD(self, var_dim):
         """Get candidate variables state representation.
         -------
         :param var_dim: dimensionality of candidate variables state representation.
@@ -3383,54 +3486,61 @@ cdef class Model:
         for i in range(nlpcands):
             # general solution
             cands_state_mat_view[i][0] = lpcandsfrac[i]
-            cands_state_mat_view[i][1] = SCIPvarGetObjLP(lpcands[i])
-            cands_state_mat_view[i][2] = SCIPgetVarRedcost(self._scip, lpcands[i])
-            cands_state_mat_view[i][3] = SCIPvarGetLPSol(lpcands[i])
-            cands_state_mat_view[i][4] = SCIPvarGetAvgSol(lpcands[i])
+            cands_state_mat_view[i][1] = SCIPvarGetObjLP(lpcands[i]) # crazy! REMOVE
+            cands_state_mat_view[i][2] = SCIPgetVarRedcost(self._scip, lpcands[i])  # always 0
+            cands_state_mat_view[i][3] = SCIPvarGetLPSol(lpcands[i]) # same as #0
+            cands_state_mat_view[i][4] = SCIPvarGetAvgSol(lpcands[i])  # across feasible primal solutions, weighted? still don't understand initialization but should be safe if we use binary and mixed binary problems (no general integers)
             # pc stats
-            cands_state_mat_view[i][5] = SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i]) # repetition!!!
-            cands_state_mat_view[i][6] = SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i])
-            cands_state_mat_view[i][7] = SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
-            cands_state_mat_view[i][8] = SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
-            cands_state_mat_view[i][9] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
-            cands_state_mat_view[i][10] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
-            cands_state_mat_view[i][11] = SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1)
-            cands_state_mat_view[i][12] = SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1)
-            cands_state_mat_view[i][13] = SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM)
-            cands_state_mat_view[i][14] = SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM)
+            cands_state_mat_view[i][5] = SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i]) # repetition!!! crazy REMOVE or normalize?
+            cands_state_mat_view[i][6] = SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i]) # repetition!!! crazy REMOVE or normalize?
+            cands_state_mat_view[i][7] = SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) # crazy, normalize?
+            cands_state_mat_view[i][8] = SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) # crazy, normalize?
+            cands_state_mat_view[i][9] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) # maybe normalize? not clear using what...use t as input to method? from branchexeclp, or some SCIPgetNBranchings?
+            cands_state_mat_view[i][10] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) # maybe normalize?
+            cands_state_mat_view[i][11] = SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1) # crazy, normalize?
+            cands_state_mat_view[i][12] = SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1) # crazy, normalize?
+            cands_state_mat_view[i][13] = SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM) # crazy
+            cands_state_mat_view[i][14] = SCIPcalculatePscostConfidenceBound(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1, SCIP_CONFIDENCELEVEL_MEDIUM) # crazy
             # branching stats
-            cands_state_mat_view[i][15] = SCIPvarGetNUses(lpcands[i])
-            cands_state_mat_view[i][16] = SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS)
-            cands_state_mat_view[i][17] = SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
-            cands_state_mat_view[i][18] = SCIPvarGetLastBdchgDepth(lpcands[i])
-            cands_state_mat_view[i][19] = SCIPgetBranchingPoint(self._scip, lpcands[i], SCIP_INVALID)
+            cands_state_mat_view[i][15] = SCIPvarGetNUses(lpcands[i]) # maybe normalize? REMOVE becuase I don't know what this is
+            cands_state_mat_view[i][16] = SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS) # maybe normalize using depth, differs among problems but also up and down branch (16 and 17)
+            cands_state_mat_view[i][17] = SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) # maybe normalize using depth
+            cands_state_mat_view[i][18] = SCIPvarGetLastBdchgDepth(lpcands[i]) # probably not meaningful for binary (at -2), REMOVE
+            cands_state_mat_view[i][19] = SCIPgetBranchingPoint(self._scip, lpcands[i], SCIP_INVALID) # REMOVE, constant at .5
             # bounds comparison
-            cands_state_mat_view[i][20] = np.abs(SCIPvarGetUbGlobal(lpcands[i]) - SCIPvarGetLbGlobal(lpcands[i]))
-            cands_state_mat_view[i][21] = np.abs(SCIPvarGetUbLocal(lpcands[i]) - SCIPvarGetLbLocal(lpcands[i]))
-            cands_state_mat_view[i][22] = np.abs(SCIPvarGetUbGlobal(lpcands[i]) - SCIPvarGetUbLocal(lpcands[i]))
-            cands_state_mat_view[i][23] = np.abs(SCIPvarGetLbGlobal(lpcands[i]) - SCIPvarGetLbLocal(lpcands[i]))
-            cands_state_mat_view[i][24] = SCIPvarGetNVubs(lpcands[i])
-            cands_state_mat_view[i][25] = SCIPvarGetNVlbs(lpcands[i])
-            cands_state_mat_view[i][26] = SCIPvarGetNBdchgInfosUb(lpcands[i])
-            cands_state_mat_view[i][27] = SCIPvarGetNBdchgInfosLb(lpcands[i])
+            cands_state_mat_view[i][20] = np.abs(SCIPvarGetUbGlobal(lpcands[i]) - SCIPvarGetLbGlobal(lpcands[i])) # REMOVE, constant for binary (at 1)
+            cands_state_mat_view[i][21] = np.abs(SCIPvarGetUbLocal(lpcands[i]) - SCIPvarGetLbLocal(lpcands[i])) # REMOVE, constant for binary (at 1)
+            cands_state_mat_view[i][22] = np.abs(SCIPvarGetUbGlobal(lpcands[i]) - SCIPvarGetUbLocal(lpcands[i])) # REMOVE, constant for binary (at 0)
+            cands_state_mat_view[i][23] = np.abs(SCIPvarGetLbGlobal(lpcands[i]) - SCIPvarGetLbLocal(lpcands[i])) # REMOVE, constant for binary (at 0)
+            cands_state_mat_view[i][24] = SCIPvarGetNVubs(lpcands[i]) # REMOVE, constant (at 0)
+            cands_state_mat_view[i][25] = SCIPvarGetNVlbs(lpcands[i]) # REMOVE, constant (at 0)
+            cands_state_mat_view[i][26] = SCIPvarGetNBdchgInfosUb(lpcands[i]) # REMOVE, constant (at 0)
+            cands_state_mat_view[i][27] = SCIPvarGetNBdchgInfosLb(lpcands[i]) # REMOVE, constant (at 0)
             # implications, cliques, conflicts, inference, cutoff
-            cands_state_mat_view[i][28] = SCIPvarGetNImpls(lpcands[i], 0)
+            cands_state_mat_view[i][28] = SCIPvarGetNImpls(lpcands[i], 0) # mostly zero, but can be positive for some variables (fixnet random 0)
             cands_state_mat_view[i][29] = SCIPvarGetNImpls(lpcands[i], 1)
-            cands_state_mat_view[i][30] = SCIPvarGetNCliques(lpcands[i], 0)
+            cands_state_mat_view[i][30] = SCIPvarGetNCliques(lpcands[i], 0) # really problem specific, small but maybe more related to structure? too much variance, maybe REMOVE
             cands_state_mat_view[i][31] = SCIPvarGetNCliques(lpcands[i], 1)
-            cands_state_mat_view[i][32] = SCIPgetVarConflictScoreCurrentRun(self._scip, lpcands[i])
-            cands_state_mat_view[i][33] = SCIPgetVarConflictlengthScoreCurrentRun(self._scip, lpcands[i])
-            cands_state_mat_view[i][34] = SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
-            cands_state_mat_view[i][35] = SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
-            cands_state_mat_view[i][36] = SCIPgetVarVSIDSCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
-            cands_state_mat_view[i][37] = SCIPgetVarVSIDSCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
-            cands_state_mat_view[i][38] = SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_state_mat_view[i][32] = SCIPgetVarConflictScoreCurrentRun(self._scip, lpcands[i]) # to be normalized with g
+            cands_state_mat_view[i][33] = SCIPgetVarConflictlengthScoreCurrentRun(self._scip, lpcands[i]) # very small but should still be normalized with g
+            cands_state_mat_view[i][34] = SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) # very small but should still be normalized with g
+            cands_state_mat_view[i][35] = SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) # varying more than #34
+            cands_state_mat_view[i][36] = SCIPgetVarVSIDSCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) # variance (more clear in relpscost and #37), but keep, normalize (with g?)
+            # todo: uniformize whether to use the CurrentRun methods or not (choose the one used in relpscost formula)
+            cands_state_mat_view[i][37] = SCIPgetVarVSIDSCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) 
+            cands_state_mat_view[i][38] = SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) # interesting, but needs g norm
             cands_state_mat_view[i][39] = SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
-            cands_state_mat_view[i][40] = SCIPgetVarAvgInferenceScoreCurrentRun(self._scip, lpcands[i])
-            cands_state_mat_view[i][41] = SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_state_mat_view[i][40] = SCIPgetVarAvgInferenceScoreCurrentRun(self._scip, lpcands[i]) # normalize as in branching formula
+            cands_state_mat_view[i][41] = SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) # normalize as in branching formula
             cands_state_mat_view[i][42] = SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
-            cands_state_mat_view[i][43] = SCIPgetVarAvgCutoffScoreCurrentRun(self._scip, lpcands[i])
-
+            cands_state_mat_view[i][43] = SCIPgetVarAvgCutoffScoreCurrentRun(self._scip, lpcands[i]) # maybe remove? not sure
+            
+            # additions
+            cands_state_mat_view[i][44] = SCIPgetNCliques(self._scip) # use it to normalize #30 and #31 but catch 0 case (if no cliques then 0)
+            cands_state_mat_view[i][45] = SCIPgetNCliquesCreated(self._scip)
+            cands_state_mat_view[i][46] = SCIPgetVarImplRedcost(self._scip, lpcands[i], 0) # 0
+            cands_state_mat_view[i][47] = SCIPgetVarImplRedcost(self._scip, lpcands[i], 1) # 0
+            
         return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)], cands_state_mat
 
     def getBranchingScores(self):
@@ -3489,32 +3599,80 @@ cdef class Model:
         cdef size_t i = 0
 
         for i in range(nlpcands):
-            cands_mat_view[i][0] = SCIPgetVarConflictScore(self._scip, lpcands[i])
-            cands_mat_view[i][1] = SCIPgetAvgConflictScore(self._scip)
+            cands_mat_view[i][0] = SCIPgetVarConflictScore(self._scip, lpcands[i]) # in formula
+            cands_mat_view[i][1] = SCIPgetAvgConflictScore(self._scip) # in formula
             cands_mat_view[i][2] = SCIPgetVarConflictScoreCurrentRun(self._scip, lpcands[i])
             cands_mat_view[i][3] = SCIPgetAvgConflictScoreCurrentRun(self._scip)
 
-            cands_mat_view[i][4] = SCIPgetVarConflictlengthScore(self._scip, lpcands[i])
-            cands_mat_view[i][5] = SCIPgetAvgConflictlengthScore(self._scip)
+            cands_mat_view[i][4] = SCIPgetVarConflictlengthScore(self._scip, lpcands[i]) # in formula
+            cands_mat_view[i][5] = SCIPgetAvgConflictlengthScore(self._scip) # in formula
             cands_mat_view[i][6] = SCIPgetVarConflictlengthScoreCurrentRun(self._scip, lpcands[i])
             cands_mat_view[i][7] = SCIPgetAvgConflictlengthScoreCurrentRun(self._scip)
 
-            cands_mat_view[i][8] = SCIPgetVarAvgInferenceScore(self._scip, lpcands[i])
-            cands_mat_view[i][9] = SCIPgetAvgInferenceScore(self._scip)
+            cands_mat_view[i][8] = SCIPgetVarAvgInferenceScore(self._scip, lpcands[i]) # in formula
+            cands_mat_view[i][9] = SCIPgetAvgInferenceScore(self._scip) # in formula
             cands_mat_view[i][10] = SCIPgetVarAvgInferenceScoreCurrentRun(self._scip, lpcands[i])
             cands_mat_view[i][11] = SCIPgetAvgInferenceScoreCurrentRun(self._scip)
 
-            cands_mat_view[i][12] = SCIPgetVarAvgCutoffScore(self._scip, lpcands[i])
-            cands_mat_view[i][13] = SCIPgetAvgCutoffScore(self._scip)
+            cands_mat_view[i][12] = SCIPgetVarAvgCutoffScore(self._scip, lpcands[i]) # in formula
+            cands_mat_view[i][13] = SCIPgetAvgCutoffScore(self._scip) # in formula
             cands_mat_view[i][14] = SCIPgetVarAvgCutoffScoreCurrentRun(self._scip, lpcands[i])
             cands_mat_view[i][15] = SCIPgetAvgCutoffScoreCurrentRun(self._scip)
-            # cands_mat_view[i][] = SCIPgetVarAvgCutoffs(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
-            # cands_mat_view[i][] = SCIPgetVarAvgCutoffs(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            
+            cands_mat_view[i][16] = SCIPgetVarAvgCutoffs(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) # todo: understand wrt 44-47 as well, should be goof as it is
+            cands_mat_view[i][17] = SCIPgetVarAvgCutoffs(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
 
-            cands_mat_view[i][16] = SCIPgetVarPseudocostScore(self._scip, lpcands[i], lpcandssol[i])
-            cands_mat_view[i][17] = SCIPgetAvgPseudocostScore(self._scip)
-            cands_mat_view[i][18] = SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i])
-            cands_mat_view[i][19] = SCIPgetAvgPseudocostScoreCurrentRun(self._scip)
+            cands_mat_view[i][18] = SCIPgetVarPseudocostScore(self._scip, lpcands[i], lpcandssol[i]) # in formula
+            cands_mat_view[i][19] = SCIPgetAvgPseudocostScore(self._scip) # in formula
+            cands_mat_view[i][20] = SCIPgetVarPseudocostScoreCurrentRun(self._scip, lpcands[i], lpcandssol[i])
+            cands_mat_view[i][21] = SCIPgetAvgPseudocostScoreCurrentRun(self._scip)
+            
+            # HERE (and few things above)
+            # other on pseudocost
+            cands_mat_view[i][22] = SCIPgetVarPseudocost(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) # crazy
+            cands_mat_view[i][23] = SCIPgetVarPseudocost(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) # there is no real avg equivalent (uses solvaldelta), crazy
+            cands_mat_view[i][24] = SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) # crazy
+            cands_mat_view[i][25] = SCIPgetVarPseudocostCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) # there is no real avg equivalent (uses solvaldelta), crazy
+            
+            cands_mat_view[i][26] = SCIPgetVarPseudocostCount(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_mat_view[i][27] = SCIPgetVarPseudocostCount(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_mat_view[i][28] = SCIPgetAvgPseudocostCount(self._scip, SCIP_BRANCHDIR_UPWARDS)
+            cands_mat_view[i][29] = SCIPgetAvgPseudocostCount(self._scip, SCIP_BRANCHDIR_DOWNWARDS)
+            cands_mat_view[i][30] = SCIPgetPseudocostCount(self._scip, SCIP_BRANCHDIR_UPWARDS, 0)
+            cands_mat_view[i][31] = SCIPgetPseudocostCount(self._scip, SCIP_BRANCHDIR_DOWNWARDS, 0)
+    
+            cands_mat_view[i][32] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) # combine up and down using min, used for reliability
+            cands_mat_view[i][33] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_mat_view[i][34] = SCIPgetAvgPseudocostCountCurrentRun(self._scip, SCIP_BRANCHDIR_UPWARDS) # cannot really normalize #32 (#33). Not sure it would make sense in g
+            cands_mat_view[i][35] = SCIPgetAvgPseudocostCountCurrentRun(self._scip, SCIP_BRANCHDIR_DOWNWARDS) # also, does not seem to be meaningful as mip feature itself?
+            cands_mat_view[i][36] = SCIPgetPseudocostCount(self._scip, SCIP_BRANCHDIR_UPWARDS, 1) # could be used to normalize #32, or maybe use 52 and 53 as per cutoff? both
+            cands_mat_view[i][37] = SCIPgetPseudocostCount(self._scip, SCIP_BRANCHDIR_DOWNWARDS, 1) # could be used to normalize #33
+            
+            cands_mat_view[i][38] = SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 0) # REMOVE all about variance
+            cands_mat_view[i][39] = SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 0) # REMOVE 
+            cands_mat_view[i][40] = SCIPgetPseudocostVariance(self._scip, SCIP_BRANCHDIR_DOWNWARDS, 0) # REMOVE 
+            
+            cands_mat_view[i][41] = SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS, 1) # REMOVE 
+            cands_mat_view[i][42] = SCIPgetVarPseudocostVariance(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS, 1) # REMOVE 
+            cands_mat_view[i][43] = SCIPgetPseudocostVariance(self._scip, SCIP_BRANCHDIR_DOWNWARDS, 1) # REMOVE 
+            
+            # other on cutoff
+            cands_mat_view[i][44] = SCIPvarGetCutoffSum(lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_mat_view[i][45] = SCIPvarGetCutoffSum(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_mat_view[i][46] = SCIPvarGetCutoffSumCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS) # do 46/54, no use avg instead
+            cands_mat_view[i][47] = SCIPvarGetCutoffSumCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) # do 47/55, no use avg instead
+            
+            # other on inference
+            cands_mat_view[i][48] = SCIPvarGetInferenceSum(lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_mat_view[i][49] = SCIPvarGetInferenceSum(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_mat_view[i][50] = SCIPvarGetInferenceSumCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS) # cannot be norm by Nbranchings only
+            cands_mat_view[i][51] = SCIPvarGetInferenceSumCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            
+            # nbranchings
+            cands_mat_view[i][52] = SCIPvarGetNBranchings(lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_mat_view[i][53] = SCIPvarGetNBranchings(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
+            cands_mat_view[i][54] = SCIPvarGetNBranchingsCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS)
+            cands_mat_view[i][55] = SCIPvarGetNBranchingsCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)
 
         return cands_mat
 
