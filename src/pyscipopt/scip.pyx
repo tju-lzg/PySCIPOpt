@@ -3146,7 +3146,9 @@ cdef class Model:
         return 1 - (1 / (1 + varscore / maxavg))
         
     def getFairNNodes(self, brancher_name):
-        """Returns the number of fair nodes for branching rule brancher_name.
+        """Returns the number of fair nodes for the specified branching rule.
+        -------
+        :param brancher_name: str, name of the branching rule 
         """
         brancher = SCIPfindBranchrule(self._scip, brancher_name)
         fair = SCIPgetNNodes(self._scip) + 2*SCIPbranchruleGetNCutoffs(brancher) + 2*SCIPbranchruleGetNDomredsFound(brancher)
@@ -3449,15 +3451,6 @@ cdef class Model:
             cands_state_mat_view[i][23] = self.gNormMax(SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)) # needs g norm
             cands_state_mat_view[i][24] = self.gNormMax(SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)) # needs g norm
             
-            # debug (remove)
-            cands_state_mat_view[i][25] = SCIPgetNCliques(self._scip)
-            cands_state_mat_view[i][26] = SCIPgetNCliquesCreated(self._scip)
-            if SCIPgetMaxDepth(self._scip) == 0:
-                cands_state_mat_view[i][27:29] = 0.
-            else:
-                cands_state_mat_view[i][27] = SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS) / SCIPgetMaxDepth(self._scip)
-                cands_state_mat_view[i][28] = SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) / SCIPgetMaxDepth(self._scip)
-        
         return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)], cands_state_mat
 
 
