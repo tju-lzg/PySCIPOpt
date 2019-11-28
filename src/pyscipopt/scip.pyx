@@ -2988,7 +2988,7 @@ cdef class Model:
 
     def getNDiscreteVars(self, transformed=False):
         """Get number of binary + integer variables.
-        -------
+        
         :param transformed: get transformed variables instead of original (Default value = False)
         """
         return SCIPgetNBinVars(self._scip) + SCIPgetNIntVars(self._scip)
@@ -3061,7 +3061,7 @@ cdef class Model:
     def getOpenLBImprovement(self, eps=1e-3):
         """Get the average lower bound improvement across the open nodes, with respect to the root lower bound.
         Assumes the lower bound at the root is *not* 0.
-        -------
+        
         :param eps: tolerance parameter to compare bounds.
         """
         cdef SCIP_NODE** leaves
@@ -3147,7 +3147,7 @@ cdef class Model:
         
     def getFairNNodes(self, brancher_name):
         """Returns the number of fair nodes for the specified branching rule.
-        -------
+        
         :param brancher_name: str, name of the branching rule 
         """
         brancher = SCIPfindBranchrule(self._scip, brancher_name)
@@ -3159,7 +3159,7 @@ cdef class Model:
     @cython.wraparound(False)
     def getNodeState(self, node_dim):
         """Get Node state representation.
-        -------
+        
         :param node_dim: dimensionality of node state representation.
         """
         node_state = np.empty(node_dim, dtype=np.double)
@@ -3201,7 +3201,7 @@ cdef class Model:
     @cython.wraparound(False)
     def getMIPState(self, mip_dim):
         """Get MIP state representation.
-        -------
+        
         :param mip_dim: dimensionality of MIP state representation.
         """
         
@@ -3250,62 +3250,58 @@ cdef class Model:
 
             # depth and backtracks
             mip_state_view[8] = SCIPgetEffectiveRootDepth(self._scip) 
-            if self._scip.stat.firstprimaldepth < SCIPgetMaxDepth(self._scip):
-                mip_state_view[9] = float(self._scip.stat.firstprimaldepth) / SCIPgetMaxDepth(self._scip)
-            else:
-                mip_state_view[9] = 0.
-            mip_state_view[10] = float(self._scip.stat.nactivatednodes) / SCIPgetNNodes(self._scip) 
-            mip_state_view[11] = float(self._scip.stat.ndeactivatednodes) / SCIPgetNNodes(self._scip)
-            mip_state_view[12] = float(SCIPgetPlungeDepth(self._scip)) / SCIPgetMaxDepth(self._scip)
-            mip_state_view[13] = float(SCIPgetNBacktracks(self._scip)) / SCIPgetNNodes(self._scip)
+            mip_state_view[9] = float(self._scip.stat.nactivatednodes) / SCIPgetNNodes(self._scip) 
+            mip_state_view[10] = float(self._scip.stat.ndeactivatednodes) / SCIPgetNNodes(self._scip)
+            mip_state_view[11] = float(SCIPgetPlungeDepth(self._scip)) / SCIPgetMaxDepth(self._scip)
+            mip_state_view[12] = float(SCIPgetNBacktracks(self._scip)) / SCIPgetNNodes(self._scip)
 
             # LP iterations
-            mip_state_view[14] = np.log(float(SCIPgetNLPIterations(self._scip)) / SCIPgetNNodes(self._scip))
-            mip_state_view[15] = np.log(float(SCIPgetNLPs(self._scip)) / SCIPgetNNodes(self._scip)) 
-            mip_state_view[16] = float(SCIPgetNNodes(self._scip)) / SCIPgetNLPs(self._scip) 
-            mip_state_view[17] = float(SCIPgetNNodeLPs(self._scip)) / SCIPgetNLPs(self._scip)
+            mip_state_view[13] = np.log(float(SCIPgetNLPIterations(self._scip)) / SCIPgetNNodes(self._scip))
+            mip_state_view[14] = np.log(float(SCIPgetNLPs(self._scip)) / SCIPgetNNodes(self._scip)) 
+            mip_state_view[15] = float(SCIPgetNNodes(self._scip)) / SCIPgetNLPs(self._scip) 
+            mip_state_view[16] = float(SCIPgetNNodeLPs(self._scip)) / SCIPgetNLPs(self._scip)
             
         # gap
         if self._scip.stat.primaldualintegral == 0:
-            mip_state_view[18] = 0.
+            mip_state_view[17] = 0.
         else:
-            mip_state_view[18] = np.log(self._scip.stat.primaldualintegral)
+            mip_state_view[17] = np.log(self._scip.stat.primaldualintegral)
 
         if SCIPisInfinity(self._scip, SCIPgetGap(self._scip)) or SCIPisInfinity(self._scip, self._scip.stat.lastsolgap) or SCIPisInfinity(self._scip, self._scip.stat.firstsolgap):
-            mip_state_view[19:22] = 0.
+            mip_state_view[18:21] = 0.
         else:    
-            mip_state_view[19] = SCIPgetGap(self._scip) / self._scip.stat.lastsolgap
-            mip_state_view[20] = SCIPgetGap(self._scip) / self._scip.stat.firstsolgap
-            mip_state_view[21] = self._scip.stat.lastsolgap / self._scip.stat.firstsolgap
+            mip_state_view[18] = SCIPgetGap(self._scip) / self._scip.stat.lastsolgap
+            mip_state_view[19] = SCIPgetGap(self._scip) / self._scip.stat.firstsolgap
+            mip_state_view[20] = self._scip.stat.lastsolgap / self._scip.stat.firstsolgap
         
         # bounds and solutions
-        mip_state_view[22] = self.relDistance(SCIPgetLowerboundRoot(self._scip), SCIPgetLowerbound(self._scip))
-        mip_state_view[23] = self.relDistance(SCIPgetLowerboundRoot(self._scip), SCIPgetAvgLowerbound(self._scip))
+        mip_state_view[21] = self.relDistance(SCIPgetLowerboundRoot(self._scip), SCIPgetLowerbound(self._scip))
+        mip_state_view[22] = self.relDistance(SCIPgetLowerboundRoot(self._scip), SCIPgetAvgLowerbound(self._scip))
         if SCIPisInfinity(self._scip, SCIPgetUpperbound(self._scip)):
-            mip_state_view[24] = 0.
+            mip_state_view[23] = 0.
         else:
-            mip_state_view[24] = self.relDistance(SCIPgetUpperbound(self._scip), SCIPgetLowerbound(self._scip)) # zero until UB is available
+            mip_state_view[23] = self.relDistance(SCIPgetUpperbound(self._scip), SCIPgetLowerbound(self._scip)) # zero until UB is available
 
-        mip_state_view[25] = float(SCIPisPrimalboundSol(self._scip))
+        mip_state_view[24] = float(SCIPisPrimalboundSol(self._scip))
         if isRoot:
-            mip_state_view[26] = 0.
+            mip_state_view[25] = 0.
         else:
-            mip_state_view[26] = float(self._scip.stat.nnodesbeforefirst) / SCIPgetNNodes(self._scip) # negative until first solution found
+            mip_state_view[25] = float(self._scip.stat.nnodesbeforefirst) / SCIPgetNNodes(self._scip) # negative until first solution found
         
         # scores (cf. branching scores)
-        mip_state_view[27] = self.gNormMax(SCIPgetAvgConflictScore(self._scip))
-        mip_state_view[28] = self.gNormMax(SCIPgetAvgConflictlengthScore(self._scip))
-        mip_state_view[29] = self.gNormMax(SCIPgetAvgInferenceScore(self._scip))
-        mip_state_view[30] = self.gNormMax(SCIPgetAvgCutoffScore(self._scip))
-        mip_state_view[31] = self.gNormMax(SCIPgetAvgPseudocostScore(self._scip))
+        mip_state_view[26] = self.gNormMax(SCIPgetAvgConflictScore(self._scip))
+        mip_state_view[27] = self.gNormMax(SCIPgetAvgConflictlengthScore(self._scip))
+        mip_state_view[28] = self.gNormMax(SCIPgetAvgInferenceScore(self._scip))
+        mip_state_view[29] = self.gNormMax(SCIPgetAvgCutoffScore(self._scip))
+        mip_state_view[30] = self.gNormMax(SCIPgetAvgPseudocostScore(self._scip))
         
-        mip_state_view[32] = self.gNormMax(SCIPgetAvgCutoffs(self._scip, SCIP_BRANCHDIR_UPWARDS)) 
-        mip_state_view[33] = self.gNormMax(SCIPgetAvgCutoffs(self._scip, SCIP_BRANCHDIR_DOWNWARDS))
-        mip_state_view[34] = self.gNormMax(SCIPgetAvgInferences(self._scip, SCIP_BRANCHDIR_UPWARDS))
-        mip_state_view[35] = self.gNormMax(SCIPgetAvgInferences(self._scip, SCIP_BRANCHDIR_DOWNWARDS))
-        mip_state_view[36] = self.gNormMax(SCIPgetPseudocostVariance(self._scip, SCIP_BRANCHDIR_UPWARDS, 1))
-        mip_state_view[37] = self.gNormMax(SCIPgetPseudocostVariance(self._scip, SCIP_BRANCHDIR_DOWNWARDS, 1))
-        mip_state_view[38] = self.gNormMax(SCIPgetNConflictConssApplied(self._scip)) 
+        mip_state_view[31] = self.gNormMax(SCIPgetAvgCutoffs(self._scip, SCIP_BRANCHDIR_UPWARDS)) 
+        mip_state_view[32] = self.gNormMax(SCIPgetAvgCutoffs(self._scip, SCIP_BRANCHDIR_DOWNWARDS))
+        mip_state_view[33] = self.gNormMax(SCIPgetAvgInferences(self._scip, SCIP_BRANCHDIR_UPWARDS))
+        mip_state_view[34] = self.gNormMax(SCIPgetAvgInferences(self._scip, SCIP_BRANCHDIR_DOWNWARDS))
+        mip_state_view[35] = self.gNormMax(SCIPgetPseudocostVariance(self._scip, SCIP_BRANCHDIR_UPWARDS, 1))
+        mip_state_view[36] = self.gNormMax(SCIPgetPseudocostVariance(self._scip, SCIP_BRANCHDIR_DOWNWARDS, 1))
+        mip_state_view[37] = self.gNormMax(SCIPgetNConflictConssApplied(self._scip)) 
         
         # open nodes
         open_lowerbounds = np.empty([nleaves + nchildren + nsiblings], dtype = np.double)
@@ -3325,46 +3321,49 @@ cdef class Model:
                 open_depths_view[nleaves+nchildren+i] = siblings[i].depth
         
             # bounds
-            mip_state_view[39] = float(len(np.argwhere(open_lowerbounds == np.min(open_lowerbounds)))) / len(open_lowerbounds) 
-            mip_state_view[40] = float(len(np.argwhere(open_lowerbounds == np.max(open_lowerbounds)))) / len(open_lowerbounds)
-            mip_state_view[41] = self.relDistance(SCIPgetLowerbound(self._scip), np.max(open_lowerbounds))
-            mip_state_view[42] = self.relDistance(np.min(open_lowerbounds), np.max(open_lowerbounds)) 
+            mip_state_view[38] = float(len(np.argwhere(open_lowerbounds == np.min(open_lowerbounds)))) / len(open_lowerbounds) 
+            mip_state_view[39] = float(len(np.argwhere(open_lowerbounds == np.max(open_lowerbounds)))) / len(open_lowerbounds)
+            mip_state_view[40] = self.relDistance(SCIPgetLowerbound(self._scip), np.max(open_lowerbounds))
+            mip_state_view[41] = self.relDistance(np.min(open_lowerbounds), np.max(open_lowerbounds)) 
             if SCIPisInfinity(self._scip, SCIPgetUpperbound(self._scip)):
-                mip_state_view[43:48] = 0.
+                mip_state_view[42:47] = 0.
             else:
-                mip_state_view[43] = self.relDistance(np.min(open_lowerbounds), SCIPgetUpperbound(self._scip))
-                mip_state_view[44] = self.relDistance(np.max(open_lowerbounds), SCIPgetUpperbound(self._scip))
-                mip_state_view[45] = self.relPosition(node_bound=np.mean(open_lowerbounds), ub=SCIPgetUpperbound(self._scip), lb=SCIPgetLowerbound(self._scip)) 
-                mip_state_view[46] = self.relPosition(node_bound=np.min(open_lowerbounds), ub=SCIPgetUpperbound(self._scip), lb=SCIPgetLowerbound(self._scip)) 
-                mip_state_view[47] = self.relPosition(node_bound=np.max(open_lowerbounds), ub=SCIPgetUpperbound(self._scip), lb=SCIPgetLowerbound(self._scip)) 
+                mip_state_view[42] = self.relDistance(np.min(open_lowerbounds), SCIPgetUpperbound(self._scip))
+                mip_state_view[43] = self.relDistance(np.max(open_lowerbounds), SCIPgetUpperbound(self._scip))
+                mip_state_view[44] = self.relPosition(node_bound=np.mean(open_lowerbounds), ub=SCIPgetUpperbound(self._scip), lb=SCIPgetLowerbound(self._scip)) 
+                mip_state_view[45] = self.relPosition(node_bound=np.min(open_lowerbounds), ub=SCIPgetUpperbound(self._scip), lb=SCIPgetLowerbound(self._scip)) 
+                mip_state_view[46] = self.relPosition(node_bound=np.max(open_lowerbounds), ub=SCIPgetUpperbound(self._scip), lb=SCIPgetLowerbound(self._scip)) 
             
             lb_q1 = np.quantile(open_lowerbounds, 0.25)
             lb_q3 = np.quantile(open_lowerbounds, 0.75)
-            mip_state_view[48] = self.relDistance(lb_q1, lb_q3) 
+            mip_state_view[47] = self.relDistance(lb_q1, lb_q3) 
             if np.mean(open_lowerbounds) == 0:
-                mip_state_view[49] = 0.
+                mip_state_view[48] = 0.
             else: 
-                mip_state_view[49] = np.std(open_lowerbounds)/np.mean(open_lowerbounds) # coefficient of variation
+                mip_state_view[48] = np.std(open_lowerbounds)/np.mean(open_lowerbounds) # coefficient of variation
             if lb_q1 + lb_q3 == 0:
-                mip_state_view[50] = 0.
+                mip_state_view[49] = 0.
             else:
-                mip_state_view[50] = (lb_q3 - lb_q1)/(lb_q3 + lb_q1) # quartile coefficient of dispersion
+                mip_state_view[49] = (lb_q3 - lb_q1)/(lb_q3 + lb_q1) # quartile coefficient of dispersion
                
             # depths
             d_q1 = np.quantile(open_depths, 0.25)
             d_q3 = np.quantile(open_depths, 0.75)
-            mip_state_view[51] = float(np.mean(open_depths)) / SCIPgetMaxDepth(self._scip)
-            mip_state_view[52] = self.relDistance(d_q1, d_q3)
-            if np.mean(open_depths) == 0:
-                mip_state_view[53] = 0.
-            else: 
-                mip_state_view[53] = np.std(open_depths)/np.mean(open_depths) # coefficient of variation
-            if d_q1 + d_q3 == 0:
-                mip_state_view[54] = 0.
+            if SCIPgetMaxDepth(self._scip) == 0: 
+                mip_state_view[50] = 0.
             else:
-                mip_state_view[54] = (d_q3 - d_q1)/(d_q3 + d_q1) # quartile coefficient of dispersion
+                mip_state_view[50] = float(np.mean(open_depths)) / SCIPgetMaxDepth(self._scip)
+            mip_state_view[51] = self.relDistance(d_q1, d_q3)
+            if np.mean(open_depths) == 0:
+                mip_state_view[52] = 0.
+            else: 
+                mip_state_view[52] = np.std(open_depths)/np.mean(open_depths) # coefficient of variation
+            if d_q1 + d_q3 == 0:
+                mip_state_view[53] = 0.
+            else:
+                mip_state_view[53] = (d_q3 - d_q1)/(d_q3 + d_q1) # quartile coefficient of dispersion
         else:
-            mip_state_view[39:] = 0.
+            mip_state_view[38:] = 0.
         
         return mip_state
         
@@ -3373,7 +3372,7 @@ cdef class Model:
     @cython.wraparound(False)
     def getCandsState(self, var_dim, branch_count):
         """Get candidate variables state representation.
-        -------
+        
         :param var_dim: dimensionality of candidate variables state representation.
         :param branch_count: counter of number of branchings performed.
         """
@@ -3399,7 +3398,7 @@ cdef class Model:
             if SCIPgetMaxDepth(self._scip) == 0:
                 cands_state_mat_view[i][2:4] = 0.
             else:
-                cands_state_mat_view[i][2] = 1 - (SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS) / SCIPgetMaxDepth(self._scip)) # ask Jason, like this could be <0 (cf. debug)
+                cands_state_mat_view[i][2] = 1 - (SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_UPWARDS) / SCIPgetMaxDepth(self._scip)) # could be <0
                 cands_state_mat_view[i][3] = 1 - (SCIPvarGetAvgBranchdepthCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) / SCIPgetMaxDepth(self._scip))
             
             # branching scores (cf. relpscost formula https://scip.zib.de/doc-6.0.0/html/branch__relpscost_8c_source.php#l00524 )
@@ -3426,17 +3425,17 @@ cdef class Model:
             if SCIPvarGetNBranchingsCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) == 0:
                 cands_state_mat_view[i][12] = 0.
             else:
-                cands_state_mat_view[i][12] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) / SCIPvarGetNBranchingsCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) # can be > 1 for relpscost, remove? (think about data collection)
+                cands_state_mat_view[i][12] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) / SCIPvarGetNBranchingsCurrentRun(lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) # can be > 1 for relpscost, REMOVE? (think about data collection)
             
             if branch_count == 0:
                 cands_state_mat_view[i][13:15] = 0.
             else:
-                cands_state_mat_view[i][13] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) / branch_count # maybe remove
-                cands_state_mat_view[i][14] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) / branch_count
+                cands_state_mat_view[i][13] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS) / branch_count # maybe REMOVE
+                cands_state_mat_view[i][14] = SCIPgetVarPseudocostCountCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS) / branch_count # maybe REMOVE
             # other roles/effects
             # implications
-            cands_state_mat_view[i][15] = SCIPvarGetNImpls(lpcands[i], 0) # maybe remove? check: in [0, 2] (random) but nonzero for very few cases
-            cands_state_mat_view[i][16] = SCIPvarGetNImpls(lpcands[i], 1) # maybe remove? check
+            cands_state_mat_view[i][15] = SCIPvarGetNImpls(lpcands[i], 0) # maybe REMOVE? check: in [0, 2] (random) but nonzero for very few cases
+            cands_state_mat_view[i][16] = SCIPvarGetNImpls(lpcands[i], 1) # maybe REMOVE? check
             # cliques
             if SCIPgetNCliques(self._scip) == 0:
                 cands_state_mat_view[i][17:19] = 0.
@@ -3444,14 +3443,14 @@ cdef class Model:
                 cands_state_mat_view[i][17] = SCIPvarGetNCliques(lpcands[i], 0) / SCIPgetNCliques(self._scip) # now always 0? note that SCIPgetNCliques(self._scip) is not always 0
                 cands_state_mat_view[i][18] = SCIPvarGetNCliques(lpcands[i], 1) / SCIPgetNCliques(self._scip) # now always 0?
             # cutoffs
-            cands_state_mat_view[i][19] = self.gNormMax(SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)) # check, seems ok, applied g norm to be sure
-            cands_state_mat_view[i][20] = self.gNormMax(SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)) # check, seems ok, applied g norm to be sure
+            cands_state_mat_view[i][19] = self.gNormMax(SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS))
+            cands_state_mat_view[i][20] = self.gNormMax(SCIPgetVarAvgCutoffsCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS))
             # conflict length
-            cands_state_mat_view[i][21] = self.gNormMax(SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)) # check, seems ok, applied g norm to be sure
-            cands_state_mat_view[i][22] = self.gNormMax(SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)) # check, seems ok, applied g norm to be sure
+            cands_state_mat_view[i][21] = self.gNormMax(SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS))
+            cands_state_mat_view[i][22] = self.gNormMax(SCIPgetVarAvgConflictlengthCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS))
             # inferences
-            cands_state_mat_view[i][23] = self.gNormMax(SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS)) # needs g norm
-            cands_state_mat_view[i][24] = self.gNormMax(SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS)) # needs g norm
+            cands_state_mat_view[i][23] = self.gNormMax(SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_UPWARDS))
+            cands_state_mat_view[i][24] = self.gNormMax(SCIPgetVarAvgInferencesCurrentRun(self._scip, lpcands[i], SCIP_BRANCHDIR_DOWNWARDS))
             
         return [Variable.create(lpcands[i]) for i in range(nlpcands)], [SCIPcolGetLPPos(SCIPvarGetCol(lpcands[i])) for i in range(nlpcands)], cands_state_mat
 
