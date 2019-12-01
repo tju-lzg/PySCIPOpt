@@ -760,6 +760,14 @@ cdef class Model:
         """Retrieve the total number of processed nodes."""
         return SCIPgetNNodes(self._scip)
 
+    def getUpperbound(self):
+        """Retrieve the upper bound of the transformed problem."""
+        return SCIPgetUpperbound(self._scip)
+
+    def getLowerbound(self):
+        """Retrieve the lower bound of the transformed problem."""
+        return SCIPgetLowerbound(self._scip)
+
     def getCurrentNode(self):
         """Retrieve current node."""
         return Node.create(SCIPgetCurrentNode(self._scip))
@@ -3897,11 +3905,11 @@ cdef class Model:
         PY_SCIP_CALL(SCIPchgReoptObjective(self._scip, objsense, _vars, &_coeffs[0], _nvars))
 
         free(_coeffs)
-        
+
     def getVariablePseudocost(self, variable):
         cdef float ps_up, ps_down
         cdef SCIP_VAR* scip_var = (<Variable>variable).scip_var
-        
+
         ps_up = SCIPgetVarPseudocost(self._scip, scip_var, SCIP_BRANCHDIR_UPWARDS)
         ps_down = SCIPgetVarPseudocost(self._scip, scip_var, SCIP_BRANCHDIR_DOWNWARDS)
         return ps_up * ps_down
