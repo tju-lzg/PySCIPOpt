@@ -723,7 +723,11 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPgetVarPseudocost(SCIP* scip, SCIP_VAR *var, SCIP_BRANCHDIR dir)
     SCIP_Real SCIPvarGetCutoffSum(SCIP_VAR* var, SCIP_BRANCHDIR dir)
     SCIP_Longint SCIPvarGetNBranchings(SCIP_VAR* var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetVarPseudocostCurrentRun(SCIP* scip, SCIP_VAR *var, SCIP_BRANCHDIR dir)
+    SCIP_Real SCIPgetVarPseudocostCountCurrentRun(SCIP* scip, SCIP_VAR *var, SCIP_BRANCHDIR dir)
 
+    SCIP_Real SCIPgetVarPseudocostVariance(SCIP* scip, SCIP_VAR *var, SCIP_BRANCHDIR dir, SCIP_Bool onlycurrentrun)
+    SCIP_Real SCIPgetVarPseudocostCount(SCIP* scip, SCIP_VAR *var, SCIP_BRANCHDIR dir)
     # SCIP_DOMCHG Methods
     int SCIPdomchgGetNBoundchgs(SCIP_DOMCHG* domchg)
     SCIP_BOUNDCHG* SCIPdomchgGetBoundchg(SCIP_DOMCHG* domchg, int pos)
@@ -786,7 +790,24 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPsetConsRemovable(SCIP *scip, SCIP_CONS *cons, SCIP_Bool removable)
     SCIP_RETCODE SCIPsetConsInitial(SCIP *scip, SCIP_CONS *cons, SCIP_Bool initial)
     SCIP_RETCODE SCIPsetConsEnforced(SCIP *scip, SCIP_CONS *cons, SCIP_Bool enforce)
-
+    SCIP_RETCODE SCIPcreateConsKnapsack	(	SCIP * 	scip,
+                                SCIP_CONS ** 	cons,
+                                const char * 	name,
+                                int 	nvars,
+                                SCIP_VAR ** 	vars,
+                                SCIP_Longint * 	weights,
+                                SCIP_Longint 	capacity,
+                                SCIP_Bool 	initial,
+                                SCIP_Bool 	separate,
+                                SCIP_Bool 	enforce,
+                                SCIP_Bool 	check,
+                                SCIP_Bool 	propagate,
+                                SCIP_Bool 	local,
+                                SCIP_Bool 	modifiable,
+                                SCIP_Bool 	dynamic,
+                                SCIP_Bool 	removable,
+                                SCIP_Bool 	stickingatnode
+                                )
     # Primal Solution Methods
     SCIP_SOL** SCIPgetSols(SCIP* scip)
     int SCIPgetNSols(SCIP* scip)
@@ -2004,3 +2025,5 @@ cdef extern from "scip/branch_vanillafullstrong.h":
                                               int* ncands,
                                               int* npriocands,
                                               int* bestcand)
+cdef extern from "scip/branch_fullstrong.h":
+    SCIP_RETCODE SCIPgetFullstrongData(SCIP* scip,SCIP_VAR** cand)

@@ -14,6 +14,7 @@ from libc.stdio cimport fdopen
 from numpy.math cimport INFINITY, NAN
 from libc.math cimport sqrt as SQRT
 
+
 include "expr.pxi"
 include "lp.pxi"
 include "benders.pxi"
@@ -475,7 +476,7 @@ cdef class Node:
         """Get branching decision of the parent node."""
         domchg = SCIPnodeGetDomchg(self.scip_node)
         nboundchgs = SCIPdomchgGetNBoundchgs(domchg)
-        assert nboundchgs == 1
+        # assert nboundchgs == 1
         boundchg = SCIPdomchgGetBoundchg(domchg, 0)
 
         result = []
@@ -1737,6 +1738,53 @@ cdef class Model:
         free(vars)
 
         return PyCons
+
+    def createMultiaggrConstraint(self, vars, rhs, lower=False):
+        cdef SCIP_CONS* scip_cons
+        cdef SCIP_Longint capacity
+
+        name = str_conversion("multiaggr")
+        nvars = len(vars)
+        _vars = <SCIP_VAR**> malloc(nvars * sizeof(SCIP_VAR*))
+        weights = <SCIP_Longint*> malloc(nvars * sizeof(SCIP_Longint))
+        for idx, var in enumerate(vars):
+            _vars[idx] = (<Variable>var).scip_var
+            if lower:
+              weights[idx] = <SCIP_Longint> 1.0
+            else:
+              weights[idx] = <SCIP_Longint> -1.0
+              rhs = -rhs
+
+        # other options
+        initial  = True                         #/**< should the LP relaxation of constraint be in the initial LP?
+                                              #*   Usually set to TRUE. Set to FALSE for 'lazy constraints'. */
+        separate = True          #/**< should the constraint be separated during LP processing?
+                                                   #*   Usually set to TRUE. */
+        enforce = True          #/**< should the constraint be enforced during node processing?
+                                                  # *   TRUE for model constraints, FALSE for additional, redundant constraints. */
+        check = True             #/**< should the constraint be checked for feasibility?
+                                                   #*   TRUE for model constraints, FALSE for additional, redundant constraints. */
+        propagate = True         #/**< should the constraint be propagated during node processing?
+                                                  # *   Usually set to TRUE. */
+        local = True              #/**< is constraint only valid locally?
+                                                  # *   Usually set to FALSE. Has to be set to TRUE, e.g., for branching constraints. */
+        modifiable = False         #/**< is constraint modifiable (subject to column generation)?
+                                                   #*   Usually set to FALSE. In column generation applications, set to TRUE if pricing
+                                                #   *   adds coefficients to this constraint. */
+        dynamic = False            #/**< is constraint subject to aging?
+                                                  # *   Usually set to FALSE. Set to TRUE for own cuts which
+                                                  # *   are separated as constraints. */
+        removable = False          #/**< should the relaxation be removed from the LP due to aging or cleanup?
+                                                  # *   Usually set to FALSE. Set to TRUE for 'lazy constraints' and 'user cuts'. */
+        stickingatnode = False      #/**< should the constraint always be kept at the node where it was added, even
+                                                  # *   if it may be moved to a more global node?
+                                                  # *   Usually set to FALSE. Set to TRUE to for constraints that represent node data. */
+
+
+        PY_SCIP_CALL(SCIPcreateConsKnapsack(self._scip, &scip_cons, name, len(vars), _vars, weights, <SCIP_Longint> rhs,
+                              initial, separate, enforce, check, propagate, local, modifiable, dynamic, removable, stickingatnode))
+
+        return Constraint.create(scip_cons)
 
     def addConsCoeff(self, Constraint cons, Variable var, coeff):
         """Add coefficient to the linear constraint (if non-zero).
@@ -3914,6 +3962,28 @@ cdef class Model:
         ps_down = SCIPgetVarPseudocost(self._scip, scip_var, SCIP_BRANCHDIR_DOWNWARDS)
         return ps_up * ps_down
 
+    def getVariablePseudocostCurrentRun(self, variable):
+        cdef float ps_up, ps_down
+        cdef SCIP_VAR* scip_var = (<Variable>variable).scip_var
+
+        ps_up = SCIPgetVarPseudocostCurrentRun(self._scip, scip_var, SCIP_BRANCHDIR_UPWARDS)
+        ps_down = SCIPgetVarPseudocostCurrentRun(self._scip, scip_var, SCIP_BRANCHDIR_DOWNWARDS)
+        up_count = SCIPgetVarPseudocostCountCurrentRun(self._scip, scip_var, SCIP_BRANCHDIR_UPWARDS)
+        down_count = SCIPgetVarPseudocostCountCurrentRun(self._scip, scip_var, SCIP_BRANCHDIR_DOWNWARDS)
+
+        return ps_up, ps_down, up_count, down_count
+
+    def getVariablePseudocostData(self, variable):
+        cdef float ps_up, ps_down, ps_var_up, ps_var_down, ps_count_up, ps_count_down
+        cdef SCIP_VAR* scip_var = (<Variable>variable).scip_var
+        ps_up = SCIPgetVarPseudocost(self._scip, scip_var, SCIP_BRANCHDIR_UPWARDS)
+        ps_down = SCIPgetVarPseudocost(self._scip, scip_var, SCIP_BRANCHDIR_DOWNWARDS)
+        ps_var_up = SCIPgetVarPseudocostVariance(self._scip, scip_var, SCIP_BRANCHDIR_UPWARDS, <SCIP_Bool> False)
+        ps_var_down = SCIPgetVarPseudocostVariance(self._scip, scip_var, SCIP_BRANCHDIR_DOWNWARDS, <SCIP_Bool> False)
+        ps_count_up  = SCIPgetVarPseudocostCount(self._scip, scip_var, SCIP_BRANCHDIR_UPWARDS)
+        ps_count_down = SCIPgetVarPseudocostCount(self._scip, scip_var, SCIP_BRANCHDIR_DOWNWARDS)
+        return ps_up, ps_down, ps_var_up, ps_var_down, ps_count_up, ps_count_down
+
     def getState(self, prev_state = None):
         cdef SCIP* scip = self._scip
         cdef int i, j, k, col_i
@@ -3938,6 +4008,12 @@ cdef class Model:
         cdef np.ndarray[np.int32_t,   ndim=1] col_sol_is_at_ub
         cdef np.ndarray[np.float32_t, ndim=1] col_incvals
         cdef np.ndarray[np.float32_t, ndim=1] col_avgincvals
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_up
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_down
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_sum
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_ratio
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_product
+
 
         if not update:
             col_types        = np.empty(shape=(ncols, ), dtype=np.int32)
@@ -3953,6 +4029,11 @@ cdef class Model:
             col_sol_is_at_ub = np.empty(shape=(ncols, ), dtype=np.int32)
             col_incvals      = np.empty(shape=(ncols, ), dtype=np.float32)
             col_avgincvals   = np.empty(shape=(ncols, ), dtype=np.float32)
+            col_ps_up        = np.empty(shape=(ncols, ), dtype=np.float32)
+            col_ps_down      = np.empty(shape=(ncols, ), dtype=np.float32)
+            col_ps_sum       = np.empty(shape=(ncols, ), dtype=np.float32)
+            col_ps_ratio     = np.empty(shape=(ncols, ), dtype=np.float32)
+            col_ps_product   = np.empty(shape=(ncols, ), dtype=np.float32)
         else:
             col_types        = prev_state['col']['types']
             col_coefs        = prev_state['col']['coefs']
@@ -3967,6 +4048,11 @@ cdef class Model:
             col_sol_is_at_ub = prev_state['col']['sol_is_at_ub']
             col_incvals      = prev_state['col']['incvals']
             col_avgincvals   = prev_state['col']['avgincvals']
+            col_ps_up        = prev_state['col']['ps_up']
+            col_ps_down      = prev_state['col']['ps_down']
+            col_ps_sum       = prev_state['col']['ps_sum']
+            col_ps_ratio     = prev_state['col']['ps_ratio']
+            col_ps_product   = prev_state['col']['ps_product']
 
         cdef SCIP_SOL* sol = SCIPgetBestSol(scip)
         cdef SCIP_VAR* var
@@ -4020,6 +4106,12 @@ cdef class Model:
             else:
                 col_incvals[col_i] = SCIPgetSolVal(scip, sol, var)
                 col_avgincvals[col_i] = SCIPvarGetAvgSol(var)
+
+            col_ps_up[col_i]      = SCIPgetVarPseudocost(scip, var, SCIP_BRANCHDIR_UPWARDS)
+            col_ps_down[col_i]    = SCIPgetVarPseudocost(scip, var, SCIP_BRANCHDIR_DOWNWARDS)
+            col_ps_sum[col_i]     = col_ps_up[col_i] + col_ps_down[col_i]
+            col_ps_ratio[col_i]   = 0 if col_ps_up[col_i] == 0 else col_ps_up[col_i]/col_ps_sum[col_i]
+            col_ps_product[col_i] = col_ps_up[col_i] * col_ps_down[col_i]
 
 
         # ROWS
@@ -4173,6 +4265,11 @@ cdef class Model:
                 'sol_is_at_ub': col_sol_is_at_ub,
                 'incvals':      col_incvals,
                 'avgincvals':   col_avgincvals,
+                'ps_up':        col_ps_up,
+                'ps_down':      col_ps_down,
+                'ps_sum':       col_ps_sum,
+                'ps_ratio':     col_ps_ratio,
+                'ps_product':   col_ps_product,
             },
             'row': {
                 'lhss':          row_lhss,
@@ -5059,6 +5156,12 @@ cdef class Model:
             npriocands,
             bestcand
         )
+
+    def getFullstrongData(self):
+        cdef SCIP_VAR* cand
+        PY_SCIP_CALL(SCIPgetFullstrongData(self._scip, &cand))
+        # assert cand is not NULL
+        return None if cand is NULL else Variable.create(cand)
 
 # debugging memory management
 def is_memory_freed():
