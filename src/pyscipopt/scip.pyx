@@ -343,6 +343,9 @@ cdef class Column:
         """gets upper bound of column"""
         return SCIPcolGetUb(self.scip_col)
 
+    def getIndex(self):
+      return SCIPcolGetIndex(self.scip_col)
+
 cdef class Row:
     """Base class holding a pointer to corresponding SCIP_ROW"""
     cdef SCIP_ROW* scip_row
