@@ -2025,5 +2025,5 @@ cdef extern from "scip/branch_vanillafullstrong.h":
                                               int* ncands,
                                               int* npriocands,
                                               int* bestcand)
-cdef extern from "scip/branch_fullstrong.h":
-    SCIP_RETCODE SCIPgetFullstrongData(SCIP* scip,SCIP_VAR** cand)
+# cdef extern from "scip/branch_fullstrong.h":
+#     SCIP_RETCODE SCIPgetFullstrongData(SCIP* scip,SCIP_VAR** cand)

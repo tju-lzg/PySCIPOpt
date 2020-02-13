@@ -5160,11 +5160,11 @@ cdef class Model:
             bestcand
         )
 
-    def getFullstrongData(self):
-        cdef SCIP_VAR* cand
-        PY_SCIP_CALL(SCIPgetFullstrongData(self._scip, &cand))
-        # assert cand is not NULL
-        return None if cand is NULL else Variable.create(cand)
+    # def getFullstrongData(self):
+    #     cdef SCIP_VAR* cand
+        # PY_SCIP_CALL(SCIPgetFullstrongData(self._scip, &cand))
+        # # assert cand is not NULL
+        # return None if cand is NULL else Variable.create(cand)
 
 # debugging memory management
 def is_memory_freed():
