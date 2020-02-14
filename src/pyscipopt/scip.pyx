@@ -2968,7 +2968,7 @@ cdef class Model:
 
 
     ###########################################
-    #       ICML2020 Paper1621 methods        #
+    #               ilbb methods              #
     ###########################################
 
     def getNLPIterations(self):
@@ -3422,7 +3422,7 @@ cdef class Model:
             branchrule.branchexeclp(self._scip, branchrule, allowaddcons, &result)
             return result
 
-    #############################
+    ###########################################
 
 # debugging memory management
 def is_memory_freed():
