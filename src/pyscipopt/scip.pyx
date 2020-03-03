@@ -6,6 +6,7 @@ from os.path import splitext
 import sys
 import warnings
 
+import numpy as np
 cimport numpy as np
 cimport cython
 from cpython cimport Py_INCREF, Py_DECREF
@@ -4641,6 +4642,7 @@ cdef class Model:
                 # Objective cosine similarity - inspired from SCIProwGetObjParallelism()
                 SCIPlpRecalculateObjSqrNorm(scip.set, scip.lp)
                 prod = rows[i].sqrnorm * scip.lp.objsqrnorm
+                # prod = 1
                 row_objcossims[i] = rows[i].objprod / SQRT(prod) if SCIPisPositive(scip, prod) else 0.0
 
                 # L2 norm

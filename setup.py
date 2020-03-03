@@ -1,4 +1,5 @@
 from setuptools import setup, Extension
+import numpy
 import os, platform, sys, re
 
 # look for environment variable that specifies path to SCIP
@@ -61,15 +62,15 @@ if not os.path.exists(os.path.join(packagedir, 'scip.pyx')):
 ext = '.pyx' if cythonize else '.c'
 
 extensions = [Extension('pyscipopt.scip', [os.path.join(packagedir, 'scip'+ext)],
-                          include_dirs=[includedir],
-                          library_dirs=[libdir],
-                          libraries=[libname],
-                          extra_compile_args = extra_compile_args,
-                          extra_link_args=extra_link_args
-                          )]
+                        include_dirs=[includedir, numpy.get_include()],
+                        library_dirs=[libdir],
+                        libraries=[libname],
+                        extra_compile_args = extra_compile_args,
+                        extra_link_args=extra_link_args
+                        )]
 
 if cythonize:
-    extensions = cythonize(extensions, compiler_directives = {'language_level': 3})
+    extensions = cythonize(extensions, compiler_directives={'language_level': 3})
 #     extensions = cythonize(extensions, compiler_directives={'linetrace': True})
 
 with open('README.md') as f:

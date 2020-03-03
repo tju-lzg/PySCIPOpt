@@ -290,6 +290,9 @@ cdef extern from "scip/scip.h":
     ctypedef struct SCIP_SET:
         pass
 
+    ctypedef struct SCIP_PROB:
+        pass
+
     ctypedef struct SCIP_VAR:
         pass
 
@@ -297,13 +300,15 @@ cdef extern from "scip/scip.h":
         pass
 
     ctypedef struct SCIP_ROW:
+        SCIP_Real objprod
+        SCIP_Real sqrnorm
         pass
 
     ctypedef struct SCIP_NLROW:
         pass
 
     ctypedef struct SCIP_COL:
-        pass
+        int age
 
     ctypedef struct SCIP_SOL:
         pass
