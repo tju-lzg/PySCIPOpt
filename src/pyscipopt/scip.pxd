@@ -280,8 +280,11 @@ cdef extern from "scip/scip.h":
 
     ctypedef double SCIP_Real
 
+    ctypedef struct SCIP_SET: 
+        pass 
+
     ctypedef struct SCIP:
-        pass
+        SCIP_SET* set 
 
     ctypedef struct SCIP_VAR:
         pass
@@ -353,8 +356,9 @@ cdef extern from "scip/scip.h":
         pass
 
     ctypedef struct SCIP_NODESEL:
-        pass
-
+        char* name
+        SCIP_RETCODE (*nodeselect)(SCIP* scip, SCIP_NODESEL* nodesel, SCIP_NODE** selnode)
+    
     ctypedef struct SCIP_NODESELDATA:
         pass
 
@@ -535,6 +539,9 @@ cdef extern from "scip/scip.h":
 
     # Probing methods
     SCIP_RETCODE SCIPstartProbing(SCIP* scip)
+    SCIP_RETCODE SCIPnewProbingNode(SCIP* scip)
+    SCIP_RETCODE SCIPgetProbingDepth(SCIP* scip)
+    SCIP_RETCODE SCIPbacktrackProbing(SCIP* scip, int probingdepth)
     SCIP_RETCODE SCIPchgVarObjProbing(SCIP* scip, SCIP_VAR* var, SCIP_Real newobj)
     SCIP_RETCODE SCIPsolveProbingLP(SCIP* scip, int itlim, SCIP_Bool* lperror, SCIP_Bool* cutoff)
     SCIP_RETCODE SCIPendProbing(SCIP* scip)
@@ -613,6 +620,7 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPsetRelaxation(SCIP* scip, SCIP_PARAMSETTING paramsetting, SCIP_Bool quiet)
     SCIP_RETCODE SCIPwriteOrigProblem(SCIP* scip, char* filename, char* extension, SCIP_Bool genericnames)
     SCIP_RETCODE SCIPwriteTransProblem(SCIP* scip, char* filename, char* extension, SCIP_Bool genericnames)
+    SCIP_RETCODE SCIPwriteLP(SCIP* scip, const char*)
     SCIP_STATUS SCIPgetStatus(SCIP* scip)
     SCIP_Real SCIPepsilon(SCIP* scip)
     SCIP_Real SCIPfeastol(SCIP* scip)
@@ -1180,6 +1188,7 @@ cdef extern from "scip/scip.h":
     SCIP_Bool SCIPisGE(SCIP* scip, SCIP_Real val1, SCIP_Real val2)
     SCIP_Bool SCIPisGT(SCIP* scip, SCIP_Real val1, SCIP_Real val2)
     SCIP_Bool SCIPisEQ(SCIP *scip, SCIP_Real val1, SCIP_Real val2)
+    SCIP_Bool SCIPisFeasEQ(SCIP *scip, SCIP_Real val1, SCIP_Real val2)
     SCIP_Bool SCIPisHugeValue(SCIP *scip, SCIP_Real val)
     SCIP_Bool SCIPisPositive(SCIP *scip, SCIP_Real val)
     SCIP_Bool SCIPisNegative(SCIP *scip, SCIP_Real val)
@@ -1501,6 +1510,10 @@ cdef extern from "scip/scip_nlp.h":
     SCIP_Bool SCIPisNLPConstructed(SCIP* scip)
     SCIP_NLROW** SCIPgetNLPNlRows(SCIP* scip)
     int SCIPgetNNLPNlRows(SCIP* scip)
+    SCIP_RETCODE SCIPgetNlRowSolActivity(SCIP* scip, SCIP_NLROW* nlrow, SCIP_SOL* sol, SCIP_Real* activity)
+    SCIP_RETCODE SCIPgetNlRowSolFeasibility(SCIP* scip, SCIP_NLROW* nlrow, SCIP_SOL* sol, SCIP_Real* feasibility)
+    SCIP_RETCODE SCIPgetNlRowActivityBounds(SCIP* scip, SCIP_NLROW* nlrow, SCIP_Real* minactivity, SCIP_Real* maxactivity)
+    SCIP_RETCODE SCIPprintNlRow(SCIP* scip, SCIP_NLROW* nlrow, FILE* file)
 
 cdef extern from "scip/cons_nonlinear.h":
     SCIP_RETCODE SCIPcreateConsNonlinear(SCIP* scip,
@@ -1637,6 +1650,19 @@ cdef extern from "scip/pub_lp.h":
 
 cdef extern from "scip/scip_tree.h":
     SCIP_RETCODE SCIPgetOpenNodesData(SCIP* scip, SCIP_NODE*** leaves, SCIP_NODE*** children, SCIP_NODE*** siblings, int* nleaves, int* nchildren, int* nsiblings)
+
+cdef extern from "scip/pub_var.h": 
+    int SCIPvarGetBranchDirection(SCIP_VAR* var) 
+
+cdef extern from "scip/var.h": 
+    SCIP_Real SCIPvarGetPseudoSol(SCIP_VAR* var)
+
+cdef extern from "scip/scip_nodesel.h": 
+    SCIP_NODESEL* SCIPgetNodesel(SCIP* scip)
+    SCIP_NODESEL* SCIPfindNodesel(SCIP* scip, const char* name)
+
+cdef extern from "scip/nodesel.h": 
+    SCIP_RETCODE SCIPnodeselSelect(SCIP_NODESEL* nodesel,  SCIP_SET* set, SCIP_NODE** selnode)
 
 cdef class Expr:
     cdef public terms

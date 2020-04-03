@@ -192,6 +192,7 @@ cdef class PY_SCIP_EVENTTYPE:
     ROWCONSTCHANGED = SCIP_EVENTTYPE_ROWCONSTCHANGED
     ROWSIDECHANGED  = SCIP_EVENTTYPE_ROWSIDECHANGED
     SYNC            = SCIP_EVENTTYPE_SYNC
+    NODESOLVED      = SCIP_EVENTTYPE_NODEFEASIBLE | SCIP_EVENTTYPE_NODEINFEASIBLE | SCIP_EVENTTYPE_NODEBRANCHED
 
 cdef class PY_SCIP_LPSOLSTAT:
     NOTSOLVED    = SCIP_LPSOLSTAT_NOTSOLVED
@@ -1119,6 +1120,14 @@ cdef class Model:
     def isFeasIntegral(self, value):
         """returns whether value is integral within the LP feasibility bounds"""
         return SCIPisFeasIntegral(self._scip, value)
+
+    def isEQ(self, val1, val2):
+        """checks, if values are in range of epsilon"""
+        return SCIPisEQ(self._scip, val1, val2)
+
+    def isFeasEQ(self, val1, val2):
+        """checks, if relative difference of values is in range of feasibility tolerance"""
+        return SCIPisFeasEQ(self._scip, val1, val2)
 
     def isLE(self, val1, val2):
         """returns whether val1 <= val2 + eps"""
@@ -2698,6 +2707,44 @@ cdef class Model:
         nlrows = SCIPgetNLPNlRows(self._scip)
         return [NLRow.create(nlrows[i]) for i in range(self.getNNlRows())]
 
+    def getNlRowSolActivity(self, NLRow nlrow, Solution sol = None):
+        """gives the activity of a nonlinear row for a given primal solution
+        Keyword arguments:
+        nlrow -- nonlinear row
+        solution -- a primal solution, if None, then the current LP solution is used
+        """
+        cdef SCIP_Real activity
+        cdef SCIP_SOL* solptr
+
+        solptr = sol.sol if not sol is None else NULL
+        PY_SCIP_CALL( SCIPgetNlRowSolActivity(self._scip, nlrow.scip_nlrow, solptr, &activity) )
+        return activity
+
+    def getNlRowSolFeasibility(self, NLRow nlrow, Solution sol = None):
+        """gives the feasibility of a nonlinear row for a given primal solution
+        Keyword arguments:
+        nlrow -- nonlinear row
+        solution -- a primal solution, if None, then the current LP solution is used
+        """
+        cdef SCIP_Real feasibility
+        cdef SCIP_SOL* solptr
+
+        solptr = sol.sol if not sol is None else NULL
+        PY_SCIP_CALL( SCIPgetNlRowSolFeasibility(self._scip, nlrow.scip_nlrow, solptr, &feasibility) )
+        return feasibility
+
+    def getNlRowActivityBounds(self, NLRow nlrow):
+        """gives the minimal and maximal activity of a nonlinear row w.r.t. the variable's bounds"""
+        cdef SCIP_Real minactivity
+        cdef SCIP_Real maxactivity
+
+        PY_SCIP_CALL( SCIPgetNlRowActivityBounds(self._scip, nlrow.scip_nlrow, &minactivity, &maxactivity) )
+        return (minactivity, maxactivity)
+
+    def printNlRow(self, NLRow nlrow):
+        """prints nonlinear row"""
+        PY_SCIP_CALL( SCIPprintNlRow(self._scip, nlrow.scip_nlrow, NULL) )
+
     def getTermsQuadratic(self, Constraint cons):
         """Retrieve bilinear, quadratic, and linear terms of a quadratic constraint.
 
@@ -3699,6 +3746,22 @@ cdef class Model:
         """Quits probing and resets bounds and constraints to the focus node's environment"""
         PY_SCIP_CALL( SCIPendProbing(self._scip) )
 
+    def newProbingNode(self):
+        """creates a new probing sub node, whose changes can be undone by backtracking to a higher node in the
+        probing path with a call to backtrackProbing()
+        """
+        PY_SCIP_CALL( SCIPnewProbingNode(self._scip) )
+
+    def backtrackProbing(self, probingdepth):
+        """undoes all changes to the problem applied in probing up to the given probing depth
+        :param probingdepth: probing depth of the node in the probing path that should be reactivated
+        """
+        PY_SCIP_CALL( SCIPbacktrackProbing(self._scip, probingdepth) )
+
+    def getProbingDepth(self):
+        """returns the current probing depth"""
+        return SCIPgetProbingDepth(self._scip)
+
     def chgVarObjProbing(self, Variable var, newobj):
         """changes (column) variable's objective value during probing mode"""
         PY_SCIP_CALL( SCIPchgVarObjProbing(self._scip, var.scip_var, newobj) )
@@ -3766,6 +3829,12 @@ cdef class Model:
         PY_SCIP_CALL(SCIPrestartSolve(self._scip))
 
     # Solution functions
+
+    def writeLP(self, filename="LP.lp"):
+        """writes current LP to a file
+        :param filename: file name (Default value = "LP.lp")
+        """
+        PY_SCIP_CALL( SCIPwriteLP(self._scip, str_conversion(filename)) )
 
     def createSol(self, Heur heur = None):
         """Create a new primal solution.
@@ -4446,6 +4515,18 @@ cdef class Model:
         PY_SCIP_CALL(SCIPchgReoptObjective(self._scip, objsense, _vars, &_coeffs[0], _nvars))
 
         free(_coeffs)
+    
+    def executeNodeSel(self, str name): 
+        cdef SCIP_NODESEL* nodesel 
+        cdef SCIP_RESULT result 
+        cdef SCIP_NODE** scip_node
+        nodesel = SCIPfindNodesel(self._scip, name.encode("UTF-8"))
+        if nodesel == NULL: 
+            print('Error: Node selector not found!')
+            return PY_SCIP_RESULT.DIDNOTFIND
+        else:
+            nodesel.nodeselect(self._scip, nodesel, scip_node)
+            return PY_SCIP_RESULT.SUCCESS
 
 # debugging memory management
 def is_memory_freed():
