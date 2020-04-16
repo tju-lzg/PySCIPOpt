@@ -278,6 +278,11 @@ cdef extern from "scip/scip.h":
 
     ctypedef long long SCIP_Longint
 
+    ctypedef enum OPT_FLAG: 
+        UNDEF=-1 
+        OPTIMAL=1 
+        NOTOPT=0
+
     ctypedef double SCIP_Real
 
     ctypedef struct SCIP_SET: 
@@ -1259,8 +1264,20 @@ cdef extern from "scip/scip.h":
 
     BMS_BLKMEM* SCIPblkmem(SCIP* scip)
 
+    # Learn2SelectNodes methods 
+    SCIP_Real SCIPgetUpperbound(SCIP* scip)
+    SCIP_Real SCIPgetLowerbound(SCIP* scip)
+    SCIP_Real SCIPgetLowerboundRoot(SCIP* scip)
+    int SCIPgetPlungeDepth(SCIP *scip)
+    SCIP_NODE* SCIPgetBestNode(SCIP *scip)
+
 cdef extern from "scip/tree.h":
     int SCIPnodeGetNAddedConss(SCIP_NODE* node)
+    SCIP_Bool SCIPnodeIsOptchecked(SCIP_NODE* node)
+    void SCIPnodeSetOptchecked(SCIP_NODE* node)
+
+cdef extern from "scip/pub_tree.h": 
+    OPT_FLAG SCIPnodeIsOptimal(SCIP_NODE* node)
 
 cdef extern from "scip/scipdefplugins.h":
     SCIP_RETCODE SCIPincludeDefaultPlugins(SCIP* scip)

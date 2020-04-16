@@ -722,6 +722,12 @@ cdef class Node:
             return None
         return DomainChanges.create(domchg)
 
+    def isOptChecked(self): 
+        return SCIPnodeIsOptchecked(self.scip_node)
+    
+    def setOptChecked(self): 
+        SCIPnodeSetOptchecked(self.scip_node)
+
     def __hash__(self):
         return hash(<size_t>self.scip_node)
 
@@ -4525,9 +4531,21 @@ cdef class Model:
             print('Error: Node selector not found!')
             return PY_SCIP_RESULT.DIDNOTFIND
         else:
+            #TODO: Make this work?!  
             nodesel.nodeselect(self._scip, nodesel, scip_node)
             return PY_SCIP_RESULT.SUCCESS
 
+    def getBestNode(self): 
+        cdef SCIP_NODE* bestnode 
+        bestnode = SCIPgetBestNode(self._scip)
+        return Node.create(bestnode)
+
+    #def getNodeselData(self, nodesel): 
+    #    cdef SCIP_NODESELDATA* nodeseldata 
+    #    nodeseldata = SCIPnodeselGetData(nodesel)
+     #   PyNodesel = <Nodesel> nodeseldata
+    #    return PyNodesel #
+    
 # debugging memory management
 def is_memory_freed():
     return BMSgetMemoryUsed() == 0
