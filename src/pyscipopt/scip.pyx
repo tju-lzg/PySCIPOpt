@@ -4452,7 +4452,7 @@ cdef class Model:
         free(_coeffs)
 
     ##### ml-branching selected functions #####
-    def getState(self, prev_state = None):
+    def getState(self, prev_state=None, format='dict'):
         cdef SCIP* scip = self._scip
         cdef int i, j, k, col_i
         cdef SCIP_Real sim, prod
@@ -4697,48 +4697,127 @@ cdef class Model:
 
                 j += row_nnzrs[i]
 
-
-        return {
-            'col': {
-                'types':        col_types,
-                'coefs':        col_coefs,
-                'lbs':          col_lbs,
-                'ubs':          col_ubs,
-                'basestats':    col_basestats,
-                'redcosts':     col_redcosts,
-                'ages':         col_ages,
-                'solvals':      col_solvals,
-                'solfracs':     col_solfracs,
-                'sol_is_at_lb': col_sol_is_at_lb,
-                'sol_is_at_ub': col_sol_is_at_ub,
-                'incvals':      col_incvals,
-                'avgincvals':   col_avgincvals,
-            },
-            'row': {
-                'lhss':          row_lhss,
-                'rhss':          row_rhss,
-                'nnzrs':         row_nnzrs,
-                'dualsols':      row_dualsols,
-                'basestats':     row_basestats,
-                'ages':          row_ages,
-                'activities':    row_activities,
-                'objcossims':    row_objcossims,
-                'norms':         row_norms,
-                'is_at_lhs':     row_is_at_lhs,
-                'is_at_rhs':     row_is_at_rhs,
-                'is_local':      row_is_local,
-                'is_modifiable': row_is_modifiable,
-                'is_removable':  row_is_removable,
-            },
-            'nzrcoef': {
-                'colidxs': coef_colidxs,
-                'rowidxs': coef_rowidxs,
-                'vals':    coef_vals,
-            },
-            'stats': {
-                'nlps': SCIPgetNLPs(scip),
-            },
-        }
+        if format == 'dict':
+            return {
+                'col': {
+                    'types':        col_types,
+                    'coefs':        col_coefs,
+                    'lbs':          col_lbs,
+                    'ubs':          col_ubs,
+                    'basestats':    col_basestats,
+                    'redcosts':     col_redcosts,
+                    'ages':         col_ages,
+                    'solvals':      col_solvals,
+                    'solfracs':     col_solfracs,
+                    'sol_is_at_lb': col_sol_is_at_lb,
+                    'sol_is_at_ub': col_sol_is_at_ub,
+                    'incvals':      col_incvals,
+                    'avgincvals':   col_avgincvals,
+                },
+                'row': {
+                    'lhss':          row_lhss,
+                    'rhss':          row_rhss,
+                    'nnzrs':         row_nnzrs,
+                    'dualsols':      row_dualsols,
+                    'basestats':     row_basestats,
+                    'ages':          row_ages,
+                    'activities':    row_activities,
+                    'objcossims':    row_objcossims,
+                    'norms':         row_norms,
+                    'is_at_lhs':     row_is_at_lhs,
+                    'is_at_rhs':     row_is_at_rhs,
+                    'is_local':      row_is_local,
+                    'is_modifiable': row_is_modifiable,
+                    'is_removable':  row_is_removable,
+                },
+                'nzrcoef': {
+                    'colidxs': coef_colidxs,
+                    'rowidxs': coef_rowidxs,
+                    'vals':    coef_vals,
+                },
+                'stats': {
+                    'nlps': SCIPgetNLPs(scip),
+                },
+            }
+        elif format == 'tensor':
+            Cfeats = [
+                    'lhss',
+                    'rhss',
+                    'nnzrs',
+                    'dualsols',
+                    'basestats',
+                    'ages',
+                    'activities',
+                    'objcossims',
+                    'norms',
+                    'is_at_lhs',
+                    'is_at_rhs',
+                    'is_local',
+                    'is_modifiable',
+                    'is_removable',
+            ] # features of constraint nodes
+            Vfeats = [
+                    'types',
+                    'coefs',
+                    'lbs',
+                    'ubs',
+                    'basestats',
+                    'redcosts',
+                    'ages',
+                    'solvals',
+                    'solfracs',
+                    'sol_is_at_lb',
+                    'sol_is_at_ub',
+                    'incvals',
+                    'avgincvals',
+            ] # features of variable nodes
+            cdef np.ndarray[np.float32_t, ndim=2] C
+            cdef np.ndarray[np.float32_t, ndim=2] V
+            V = np.hstack([
+                col_types,
+                col_coefs,
+                col_lbs,
+                col_ubs,
+                col_basestats,
+                col_redcosts,
+                col_ages,
+                col_solvals,
+                col_solfracs,
+                col_sol_is_at_lb,
+                col_sol_is_at_ub,
+                col_incvals,
+                col_avgincvals,
+            ])
+            C = np.hstack([
+                row_lhss,
+                row_rhss,
+                row_nnzrs,
+                row_dualsols,
+                row_basestats,
+                row_ages,
+                row_activities,
+                row_objcossims,
+                row_norms,
+                row_is_at_lhs,
+                row_is_at_rhs,
+                row_is_local,
+                row_is_modifiable,
+                row_is_removable,
+            ])
+            return {
+                'C': C,
+                'V': V,
+                'Ck': Cfeats,
+                'Vk': Vfeats,
+                'nzrcoef': {
+                    'colidxs': coef_colidxs,
+                    'rowidxs': coef_rowidxs,
+                    'vals':    coef_vals,
+                },
+                'stats': {
+                    'nlps': SCIPgetNLPs(scip),
+                },
+            }
 
 # debugging memory management
 def is_memory_freed():
