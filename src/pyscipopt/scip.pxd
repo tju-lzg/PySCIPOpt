@@ -1625,6 +1625,7 @@ cdef extern from "scip/pub_lp.h":
     SCIP_Bool SCIProwIsLocal(SCIP_ROW* row)
     SCIP_Bool SCIProwIsModifiable(SCIP_ROW* row)
     SCIP_Bool SCIProwIsRemovable(SCIP_ROW* row)
+    SCIP_Bool SCIProwIsInGlobalCutpool(SCIP_ROW* row)
     int SCIProwGetNNonz(SCIP_ROW* row)
     int SCIProwGetNLPNonz(SCIP_ROW* row)
     SCIP_COL** SCIProwGetCols(SCIP_ROW* row)
@@ -1632,9 +1633,8 @@ cdef extern from "scip/pub_lp.h":
     SCIP_Real SCIProwGetNorm(SCIP_ROW* row)
     SCIP_Real SCIProwGetDualsol(SCIP_ROW* row)
     int SCIProwGetAge(SCIP_ROW* row)
-    SCIP_Bool SCIProwIsRemovable(SCIP_ROW* row)
     SCIP_ROWORIGINTYPE SCIProwGetOrigintype(SCIP_ROW* row)
-
+    SCIP_Real SCIProwGetParallelism(SCIP_ROW* row1, SCIP_ROW* row2, char orthofunc)
     # Column Methods
     int SCIPcolGetLPPos(SCIP_COL* col)
     SCIP_BASESTAT SCIPcolGetBasisStatus(SCIP_COL* col)
@@ -1664,15 +1664,18 @@ cdef extern from "scip/lp.h":
     SCIP_Real SCIProwGetNorm(SCIP_ROW* row)
     SCIP_Real SCIProwGetDualsol(SCIP_ROW* row)
     int SCIProwGetAge(SCIP_ROW* row)
-    SCIP_Real SCIProwGetLPActivity(SCIP_ROW* row,
-                                   SCIP_SET* set,
-                                   SCIP_STAT* stat,
-                                   SCIP_LP* lp)
-    SCIP_Real SCIProwGetObjParallelism(SCIP_ROW* row,
-                                       SCIP_SET* set,
-                                       SCIP_LP* lp)
-
+    SCIP_Real SCIProwGetLPActivity(SCIP_ROW* row, SCIP_SET* set, SCIP_STAT* stat, SCIP_LP* lp)
+    SCIP_Real SCIProwGetObjParallelism(SCIP_ROW* row, SCIP_SET* set, SCIP_LP* lp)
     SCIP_Real SCIPcolGetObj(SCIP_COL *col)
+
+##### ml-cutting-planes functions #####
+    int SCIProwGetNumIntCols(SCIP_ROW* row, SCIP_SET* set)
+    SCIP_Real SCIProwGetLPSolCutoffDistance(SCIP_ROW* row, SCIP_SET* set, SCIP_STAT* stat, SCIP_SOL* sol, SCIP_LP* lp)
+
+# TODO check if this is the correct callback to retrieve all the available cuts
+cdef extern from "scip/scip_cut.h":
+    SCIP_ROW** SCIPgetCuts(SCIP* scip)
+
 
 cdef extern from "scip/def.h":
     SCIP_Real REALABS(SCIP_Real x)

@@ -403,6 +403,13 @@ cdef class Row:
         """gets position of row in current LP, or -1 if it is not in LP"""
         return SCIProwGetLPPos(self.scip_row)
 
+    def getParallelism(self, Row row not None, orthofunc='e'):
+        """ returns the parallelism degree between self and row:
+            p = |v*w|/(|v|*|w|)
+            orthofunc: 'e'-euclidean, 'd'-discrete
+        """
+        return SCIProwGetParallelism(self.scip_row, row.scip_row, ord(orthofunc))
+
     def getBasisStatus(self):
         """gets the basis status of a row in the LP solution, Note: returns basis status `basic` for rows not in the current SCIP LP"""
         cdef SCIP_BASESTAT stat = SCIProwGetBasisStatus(self.scip_row)
@@ -429,6 +436,14 @@ cdef class Row:
     def isRemovable(self):
         """returns TRUE iff row is removable from the LP (due to aging or cleanup)"""
         return SCIProwIsRemovable(self.scip_row)
+
+    def isLocal(self):
+        """returns TRUE iff row is valid only in the local node"""
+        return SCIProwIsLocal(self.scip_row)
+
+    def isInGlobalCutpool(self):
+        """returns TRUE iff row is in the global cut pool"""
+        return SCIProwIsInGlobalCutpool(self.scip_row)
 
     def getOrigintype(self):
         """returns type of origin that created the row"""
@@ -1805,9 +1820,28 @@ cdef class Model:
         """if not already existing, adds row to global cut pool"""
         PY_SCIP_CALL(SCIPaddPoolCut(self._scip, row.scip_row))
 
-    def getCutEfficacy(self, Row cut not None, Solution sol = None):
+    def getCutEfficacy(self, Row cut not None, Solution sol=None):
         """returns efficacy of the cut with respect to the given primal solution or the current LP solution: e = -feasibility/norm"""
         return SCIPgetCutEfficacy(self._scip, NULL if sol is None else sol.sol, cut.scip_row)
+
+
+    def getCutIntSupport(self, Row cut not None):
+        """ returns the intsupport of a cut, i.e the fraction of integral columns with respect to the non zero columns in cut"""
+        # TODO return SCIProwGetNumIntCols(cut.scip_row, self._scip.set) / cut.getNNonz()
+        row_cols = cut.getCols()
+        num_int_cols = 0
+        for col in row_cols:
+            num_int_cols += col.isIntegral()
+        return num_int_cols / cut.getNNonz()
+
+    # TODO patch scip apub_lp.h and lp.c and support the following functions
+    # def getCutDirCutoffDistance(self, Row cut not None, Solution sol=None):
+    #     """ returns directed cutoff distance of a cut with respect to the given primal solution or the current LP solution"""
+    #     return SCIProwGetLPSolCutoffDistance(cut.scip_row, self._scip.set, self._scip.stat, NULL if sol is None else sol.sol, self._scip.lp)
+
+    # def getCutObjParallelism(self, Row cut not None):
+    #     """ returns the cut parallelism with respect to the objective coefficients"""
+    #     return SCIProwGetParallelism(cut.scip_row, self._scip.set, self._scip.lp)
 
     def isCutEfficacious(self, Row cut not None, Solution sol = None):
         """ returns whether the cut's efficacy with respect to the given primal solution or the current LP solution is greater than the minimal cut efficacy"""
@@ -1849,6 +1883,7 @@ cdef class Model:
 
         PY_SCIP_CALL( SCIPseparateSol(self._scip, NULL if sol is None else sol.sol, pretendroot, allowlocal, onlydelayed, &delayed, &cutoff) )
         return delayed, cutoff
+
 
     # Constraint functions
     def addCons(self, cons, name='', initial=True, separate=True,
@@ -4451,7 +4486,7 @@ cdef class Model:
 
         free(_coeffs)
 
-    ##### ml-branching selected functions #####
+    ##### ml-cutting-planes functions #####
     def getState(self, prev_state=None, format='dict'):
         cdef SCIP* scip = self._scip
         cdef int i, j, k, col_i
@@ -4697,6 +4732,49 @@ cdef class Model:
 
                 j += row_nnzrs[i]
 
+        # CUTS
+        cdef int ncuts = SCIPgetNCuts(scip)
+        cdef SCIP_ROW** cuts = SCIPgetCuts(scip)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_intsupport          = np.empty(shape=(ncuts), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_objparal            = np.empty(shape=(ncuts), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_efficacy            = np.empty(shape=(ncuts), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_dircutoffdist       = np.empty(shape=(ncuts), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_maxparal            = np.empty(shape=(ncuts), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_minparal            = np.empty(shape=(ncuts), dtype=np.float32)
+        cdef np.ndarray[np.int32_t, ndim=1]   cut_is_local            = np.empty(shape=(ncuts), dtype=np.int32)
+        cdef np.ndarray[np.int32_t, ndim=1]   cut_is_in_globalcutpool = np.empty(shape=(ncuts), dtype=np.int32)
+        cdef np.ndarray[np.int32_t, ndim=1]   cut_is_efficacious      = np.empty(shape=(ncuts), dtype=np.int32)
+        cdef np.ndarray[np.float32_t, ndim=2] cut_parallelism         = np.empty(shape=(ncuts, ncuts), dtype=np.float32)
+
+        for i in range(ncuts):
+            cut = Row.create(cuts[i])
+            cut_intsupport[i] = self.getCutIntSupport(cut)
+            # cut_objparal[i] = self.getCutObjParallelism(cut)
+            prod = cuts[i].sqrnorm * SQRT(SCIPgetObjNorm(scip))
+            cut_objparal[i] = cuts[i].objprod / SQRT(prod) if SCIPisPositive(scip, prod) else 0.0
+
+            cut_efficacy[i] = self.getCutEfficacy(cut)
+            # TODO in practice the value of dircutoffdist for local cuts is the cut efficacy.
+            # so as far we don't add globally valid cuts, its okay to continue without it.
+            cut_dircutoffdist[i] = 0  # TODO self.getCutDirCutoffDistance(cut) doesn't work 
+            cut_is_local[i] = cut.isLocal()
+            cut_is_in_globalcutpool[i] = cut.isInGlobalCutpool()
+            cut_is_efficacious[i] = self.isCutEfficacious(cut)
+            cut_parallelism[i,i] = 0.0
+            for j in range(i+1, ncuts):
+                paral = cut.getParallelism(Row.create(cuts[j]))
+                cut_parallelism[i,j] = paral
+                cut_parallelism[j,i] = paral
+            cut_maxparal[i] = np.max(cut_parallelism[i,:])
+            cut_parallelism[i,i] = 1.0
+            cut_minparal[i] = np.min(cut_parallelism[i,:])
+
+
+
+        cdef np.ndarray[np.float32_t, ndim=2] A # actions (cuts) feature matrix
+        cdef np.ndarray[np.float32_t, ndim=2] C # constraints feature matrix
+        cdef np.ndarray[np.float32_t, ndim=2] V # variables feature matrix
+
         if format == 'dict':
             return {
                 'col': {
@@ -4715,7 +4793,7 @@ cdef class Model:
                     'avgincvals':   col_avgincvals,
                 },
                 'row': {
-                    'lhss':          row_lhss,
+                    # 'lhss':          row_lhss,
                     'rhss':          row_rhss,
                     'nnzrs':         row_nnzrs,
                     'dualsols':      row_dualsols,
@@ -4738,42 +4816,64 @@ cdef class Model:
                 'stats': {
                     'nlps': SCIPgetNLPs(scip),
                 },
+                'cut': {
+                    'intsupport': cut_intsupport,
+                    'objparal': cut_objparal,
+                    'efficacy': cut_efficacy,
+                    'dircutoffdist': cut_dircutoffdist,
+                    'maxparal': cut_maxparal,
+                    'minparal': cut_minparal,
+                    'is_local': cut_is_local,
+                    'is_in_globalcutpool': cut_is_in_globalcutpool,
+                    'is_efficacious': cut_is_efficacious,
+                    'parallelism': cut_parallelism,
+                }
             }
         elif format == 'tensor':
             Cfeats = [
-                    'lhss',
-                    'rhss',
-                    'nnzrs',
-                    'dualsols',
-                    'basestats',
-                    'ages',
-                    'activities',
-                    'objcossims',
-                    'norms',
-                    'is_at_lhs',
-                    'is_at_rhs',
-                    'is_local',
-                    'is_modifiable',
-                    'is_removable',
+                # 'lhss',
+                'rhss',
+                'nnzrs',
+                'dualsols',
+                'basestats',
+                'ages',
+                'activities',
+                'objcossims',
+                'norms',
+                'is_at_lhs',
+                'is_at_rhs',
+                'is_local',
+                'is_modifiable',
+                'is_removable',
             ] # features of constraint nodes
             Vfeats = [
-                    'types',
-                    'coefs',
-                    'lbs',
-                    'ubs',
-                    'basestats',
-                    'redcosts',
-                    'ages',
-                    'solvals',
-                    'solfracs',
-                    'sol_is_at_lb',
-                    'sol_is_at_ub',
-                    'incvals',
-                    'avgincvals',
+                'types',
+                'coefs',
+                'lbs',
+                'ubs',
+                'basestats',
+                'redcosts',
+                'ages',
+                'solvals',
+                'solfracs',
+                'sol_is_at_lb',
+                'sol_is_at_ub',
+                'incvals',
+                'avgincvals',
             ] # features of variable nodes
-            cdef np.ndarray[np.float32_t, ndim=2] C
-            cdef np.ndarray[np.float32_t, ndim=2] V
-            V = np.hstack([
+            Afeats = [
+                'cut_intsupport',
+                'cut_objparal',
+                'cut_efficacy',
+                'cut_dircutoffdist',
+                'cut_maxparal',
+                'cut_minparal',
+                'cut_is_local',
+                'cut_is_in_globalcutpool',
+                'cut_is_efficacious',
+            ] # features of cut nodes
+
+            V = np.vstack([
                 col_types,
                 col_coefs,
                 col_lbs,
@@ -4787,9 +4887,9 @@ cdef class Model:
                 col_sol_is_at_ub,
                 col_incvals,
                 col_avgincvals,
-            ])
-            C = np.hstack([
-                row_lhss,
+            ]).astype(np.float32).T
+            C = np.vstack([
+                # row_lhss,
                 row_rhss,
                 row_nnzrs,
                 row_dualsols,
@@ -4803,12 +4903,27 @@ cdef class Model:
                 row_is_local,
                 row_is_modifiable,
                 row_is_removable,
-            ])
+            ]).astype(np.float32).T
+            A = np.vstack([
+                cut_intsupport,
+                cut_objparal,
+                cut_efficacy,
+                cut_dircutoffdist,
+                cut_maxparal,
+                cut_minparal,
+                cut_is_local,
+                cut_is_in_globalcutpool,
+                cut_is_efficacious,
+            ]).astype(np.float32).T
+
             return {
                 'C': C,
                 'V': V,
+                'A': A,
                 'Ck': Cfeats,
                 'Vk': Vfeats,
+                'Ak': Afeats,
+                'cut_parallelism': cut_parallelism,
                 'nzrcoef': {
                     'colidxs': coef_colidxs,
                     'rowidxs': coef_rowidxs,
