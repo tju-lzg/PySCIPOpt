@@ -1,5 +1,17 @@
 ##@file scip.pxd
 #@brief holding prototype of the SCIP public functions to use them in PySCIPOpt
+
+# import SCIP struct from struct_scip.h instead of
+# importing from scip.h as before, to solve the
+# error: dereferencing pointer to incomplete type ‘SCIP {aka struct Scip}’
+cdef extern from "scip/struct_scip.h":
+    ctypedef struct SCIP:
+            SCIP_SET* set
+            SCIP_STAT* stat
+            SCIP_PROB * origprob
+            SCIP_PROB * transprob
+            SCIP_LP* lp
+
 cdef extern from "scip/scip.h":
     # SCIP internal types
     ctypedef enum SCIP_RETCODE:
@@ -1635,6 +1647,7 @@ cdef extern from "scip/pub_lp.h":
     int SCIProwGetAge(SCIP_ROW* row)
     SCIP_ROWORIGINTYPE SCIProwGetOrigintype(SCIP_ROW* row)
     SCIP_Real SCIProwGetParallelism(SCIP_ROW* row1, SCIP_ROW* row2, char orthofunc)
+
     # Column Methods
     int SCIPcolGetLPPos(SCIP_COL* col)
     SCIP_BASESTAT SCIPcolGetBasisStatus(SCIP_COL* col)
@@ -1649,6 +1662,9 @@ cdef extern from "scip/pub_lp.h":
     SCIP_Real* SCIPcolGetVals(SCIP_COL* col)
     int SCIPcolGetIndex(SCIP_COL* col)
     SCIP_Real SCIPcolGetObj(SCIP_COL *col)
+    SCIP_Real SCIProwGetDirCutoffDistance(SCIP* scip, SCIP_ROW* row)
+    int SCIProwGetNIntCols(SCIP* scip, SCIP_ROW* row)
+    SCIP_Real SCIProwGetObjParal(SCIP* scip, SCIP_ROW* row)
 
 cdef extern from "scip/scip_tree.h":
     SCIP_RETCODE SCIPgetOpenNodesData(SCIP* scip, SCIP_NODE*** leaves, SCIP_NODE*** children, SCIP_NODE*** siblings, int* nleaves, int* nchildren, int* nsiblings)
@@ -1665,7 +1681,7 @@ cdef extern from "scip/lp.h":
     SCIP_Real SCIProwGetDualsol(SCIP_ROW* row)
     int SCIProwGetAge(SCIP_ROW* row)
     SCIP_Real SCIProwGetLPActivity(SCIP_ROW* row, SCIP_SET* set, SCIP_STAT* stat, SCIP_LP* lp)
-    SCIP_Real SCIProwGetObjParallelism(SCIP_ROW* row, SCIP_SET* set, SCIP_LP* lp)
+    # SCIP_Real SCIProwGetObjParallelism(SCIP_ROW* row, SCIP_SET* set, SCIP_LP* lp)
     SCIP_Real SCIPcolGetObj(SCIP_COL *col)
 
 ##### ml-cutting-planes functions #####
