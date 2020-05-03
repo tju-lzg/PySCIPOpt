@@ -1638,6 +1638,7 @@ cdef extern from "scip/pub_lp.h":
     SCIP_Bool SCIProwIsModifiable(SCIP_ROW* row)
     SCIP_Bool SCIProwIsRemovable(SCIP_ROW* row)
     SCIP_Bool SCIProwIsInGlobalCutpool(SCIP_ROW* row)
+    SCIP_Bool SCIProwIsInLP(SCIP_ROW* row)
     int SCIProwGetNNonz(SCIP_ROW* row)
     int SCIProwGetNLPNonz(SCIP_ROW* row)
     SCIP_COL** SCIProwGetCols(SCIP_ROW* row)

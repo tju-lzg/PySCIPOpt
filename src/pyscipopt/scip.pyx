@@ -15,7 +15,7 @@ from libc.stdio cimport fdopen
 from libc.stdint cimport uintptr_t
 from numpy.math cimport INFINITY, NAN
 from libc.math cimport sqrt as SQRT
-
+from collections import OrderedDict
 include "expr.pxi"
 include "lp.pxi"
 include "benders.pxi"
@@ -4490,7 +4490,15 @@ cdef class Model:
         free(_coeffs)
 
     ##### ml-cutting-planes functions #####
-    def getState(self, prev_state=None, format='dict'):
+    def getState(self, prev_state=None, state_format='dict', query_rows=None, return_cut_names=False):
+        """
+
+        :param prev_state:
+        :param state_format: 'dict' or 'tensor'
+        :param query_rows: a dictionary containing row names to check if they are in LP
+        :param return_cut_names: whether to return a list of the candidate cut names
+        :return: state dictionary
+        """
         cdef SCIP* scip = self._scip
         cdef int i, j, k, col_i
         cdef SCIP_Real sim, prod
@@ -4647,6 +4655,7 @@ cdef class Model:
 
         cdef int nnzrs = 0
         cdef SCIP_Real activity, lhs, rhs, cst
+
         for i in range(nrows):
 
             # lhs <= activity + cst <= rhs
@@ -4702,7 +4711,10 @@ cdef class Model:
             # Is tight
             row_is_at_lhs[i] = SCIPisEQ(scip, activity, lhs)
             row_is_at_rhs[i] = SCIPisEQ(scip, activity, rhs)
-
+            if query_rows is not None:
+                row_name = SCIProwGetName(rows[i])
+                if query_rows.get(row_name, None) is not None:
+                    query_rows[row_name] = 1
 
         cdef np.ndarray[np.int32_t,   ndim=1] coef_colidxs
         cdef np.ndarray[np.int32_t,   ndim=1] coef_rowidxs
@@ -4756,6 +4768,8 @@ cdef class Model:
         cdef np.ndarray[np.int32_t,   ndim=1] cut_is_removable        = np.empty(shape=(ncuts), dtype=np.int32)
         cdef np.ndarray[np.int32_t,   ndim=1] cut_is_in_globalcutpool = np.empty(shape=(ncuts), dtype=np.int32)
         cdef np.ndarray[np.int32_t,   ndim=1] cut_is_efficacious      = np.empty(shape=(ncuts), dtype=np.int32)
+
+        cut_names = OrderedDict()
         # inter cuts parallelism
         cdef np.ndarray[np.float32_t, ndim=2] cut_parallelism         = np.empty(shape=(ncuts, ncuts), dtype=np.float32)
         # total num non-zero coefficients of cuts
@@ -4791,6 +4805,8 @@ cdef class Model:
             cut_is_in_globalcutpool[i] = SCIProwIsInGlobalCutpool(cuts[i])  # cut.isInGlobalCutpool()
             cut_is_efficacious[i] = SCIPisCutEfficacious(scip, NULL, cuts[i])  # self.isCutEfficacious(cut)
             cuts_nnzrs += cut_nnzrs[i]
+            if return_cut_names:
+                cut_names[SCIProwGetName(cuts[i])] = 0
 
         # nzr coef of cuts
         cdef np.ndarray[np.int32_t,   ndim=1] cut_coef_colidxs = np.empty(shape=(cuts_nnzrs, ), dtype=np.int32)
@@ -4823,7 +4839,7 @@ cdef class Model:
         cdef np.ndarray[np.float32_t, ndim=2] C # constraints feature matrix
         cdef np.ndarray[np.float32_t, ndim=2] V # variables feature matrix
 
-        if format == 'dict':
+        if state_format == 'dict':
             return {
                 'col': {
                     'types':        col_types,
@@ -4880,9 +4896,15 @@ cdef class Model:
                     'is_in_globalcutpool': cut_is_in_globalcutpool,
                     'is_efficacious':      cut_is_efficacious,
                 },
+                'cut_nzrcoef': {
+                    'colidxs': cut_coef_colidxs,
+                    'rowidxs': cut_coef_rowidxs,
+                    'vals': cut_coef_vals,
+                },
                 'cut_parallelism': cut_parallelism,
+                'cut_names': cut_names
             }
-        elif format == 'tensor':
+        elif state_format == 'tensor':
             Cfeats = [
                 # 'lhss',
                 'rhss',
@@ -4996,7 +5018,13 @@ cdef class Model:
                     'rowidxs': coef_rowidxs,
                     'vals':    coef_vals,
                 },
+                'cut_nzrcoef': {
+                    'colidxs': cut_coef_colidxs,
+                    'rowidxs': cut_coef_rowidxs,
+                    'vals': cut_coef_vals,
+                },
                 'stats': stats,
+                'cut_names': cut_names
             }
 
 # debugging memory management
