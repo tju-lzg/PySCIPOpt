@@ -4490,6 +4490,22 @@ cdef class Model:
         free(_coeffs)
 
     ##### ml-cutting-planes functions #####
+    def queryRows(self, query_rows):
+        cdef int nrows = SCIPgetNLPRows(self._scip)
+        cdef int nfound = 0
+        cdef int nqueries = len(query_rows)
+        cdef SCIP_ROW** rows = SCIPgetLPRows(self._scip)
+        # start from the last row and stop if all query rows found in LP
+        if query_rows is not None:
+            for i in range(start=nrows-1, stop=0, step=-1):
+                row_name = SCIProwGetName(rows[i])
+                if query_rows.get(row_name, None) is not None:
+                    query_rows[row_name] = 1
+                    nfound += 1
+                if nfound == nqueries:
+                    break
+        return query_rows
+
     def getState(self, prev_state=None, state_format='dict', query_rows=None, return_cut_names=False):
         """
 
@@ -4832,7 +4848,8 @@ cdef class Model:
             'nlps': SCIPgetNLPs(scip),
             'nlprows': SCIPgetNLPRows(scip),
             'nlpcols': SCIPgetNLPCols(scip),
-            'ncutsapplied': SCIPgetNCutsApplied(scip)
+            'ncutsapplied': SCIPgetNCutsApplied(scip),
+            'gap': SCIPgetGap(scip)
         }
 
         cdef np.ndarray[np.float32_t, ndim=2] A # actions (cuts) feature matrix
