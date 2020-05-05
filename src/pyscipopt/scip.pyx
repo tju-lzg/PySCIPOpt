@@ -1836,10 +1836,18 @@ cdef class Model:
     #     return SCIProwGetNIntCols(self._scip, cut.scip_row) /cut.getNNonz()
     #
     # # TODO patch scip pub_lp.h and lp.c and support the following functions
-    # def getCutDirCutoffDistance(self, Row cut not None, Solution sol=None):
-    #     """ returns directed cutoff distance of a cut with respect to the given primal solution or the current LP solution"""
-    #     # return SCIProwGetLPSolCutoffDistance(cut.scip_row, self._scip.set, self._scip.stat, NULL if sol is None else sol.sol, self._scip.lp)
-    #     return SCIProwGetDirCutoffDistance(self._scip, cut.scip_row)
+    def getCutDirCutoffDistance(self, Row cut not None, Solution sol=None):
+        """ returns directed cutoff distance of a cut with respect to the given primal solution or the current LP solution"""
+        # return SCIProwGetLPSolCutoffDistance(cut.scip_row, self._scip.set, self._scip.stat, NULL if sol is None else sol.sol, self._scip.lp)
+        cdef SCIP_Real efficacy = SCIPgetCutEfficacy(self._scip, NULL, cut.scip_row)
+        cdef SCIP_Real dircutoffdist
+        if SCIProwIsLocal(cut.scip_row):
+            return efficacy
+        else:
+            dircutoffdist = SCIProwGetDirCutoffDistance(self._scip, cut.scip_row)
+            return max(dircutoffdist, efficacy)
+
+
     #
     # def getCutObjParallelism(self, Row cut not None):
     #     """ returns the cut parallelism with respect to the objective coefficients"""
