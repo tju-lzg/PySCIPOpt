@@ -4785,8 +4785,8 @@ cdef class Model:
         cdef np.ndarray[np.float32_t, ndim=1] cut_objparal            = np.empty(shape=(ncuts), dtype=np.float32)
         cdef np.ndarray[np.float32_t, ndim=1] cut_efficacy            = np.empty(shape=(ncuts), dtype=np.float32)
         cdef np.ndarray[np.float32_t, ndim=1] cut_dircutoffdist       = np.empty(shape=(ncuts), dtype=np.float32)
-        cdef np.ndarray[np.float32_t, ndim=1] cut_maxparal            = np.empty(shape=(ncuts), dtype=np.float32)
-        cdef np.ndarray[np.float32_t, ndim=1] cut_minparal            = np.empty(shape=(ncuts), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_maxortho            = np.empty(shape=(ncuts), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_minortho            = np.empty(shape=(ncuts), dtype=np.float32)
         cdef np.ndarray[np.int32_t,   ndim=1] cut_is_local            = np.empty(shape=(ncuts), dtype=np.int32)
         cdef np.ndarray[np.int32_t,   ndim=1] cut_is_modifiable       = np.empty(shape=(ncuts), dtype=np.int32)
         cdef np.ndarray[np.int32_t,   ndim=1] cut_is_removable        = np.empty(shape=(ncuts), dtype=np.int32)
@@ -4795,7 +4795,7 @@ cdef class Model:
 
         cut_names = OrderedDict()
         # inter cuts parallelism
-        cdef np.ndarray[np.float32_t, ndim=2] cut_parallelism         = np.empty(shape=(ncuts, ncuts), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=2] cuts_orthogonality      = np.empty(shape=(ncuts, ncuts), dtype=np.float32)
         # total num non-zero coefficients of cuts
         cdef int cuts_nnzrs = 0
 
@@ -4815,14 +4815,15 @@ cdef class Model:
             cut_objparal[i] = cuts[i].objprod / SQRT(prod) if SCIPisPositive(scip, prod) else 0.0
             cut_efficacy[i] = SCIPgetCutEfficacy(scip, NULL, cuts[i])  # self.getCutEfficacy(cut)
             cut_dircutoffdist[i] = SCIProwGetDirCutoffDistance(scip, cuts[i])  # self.getCutDirCutoffDistance(cut)
-            cut_parallelism[i,i] = 0.0
+            cuts_orthogonality[i,i] = 0.0
             for j in range(i+1, ncuts):
                 paral = SCIProwGetParallelism(cuts[i], cuts[j], ord('e'))  # cut.getParallelism(Row.create(cuts[j]))
-                cut_parallelism[i,j] = paral
-                cut_parallelism[j,i] = paral
-            cut_maxparal[i] = np.max(cut_parallelism[i,:])
-            cut_parallelism[i,i] = 1.0
-            cut_minparal[i] = np.min(cut_parallelism[i,:])
+                cuts_orthogonality[i,j] = 1 - paral
+                cuts_orthogonality[j,i] = 1 - paral
+            cut_maxortho[i] = np.max(cuts_orthogonality[i,:])
+            cuts_orthogonality[i,i] = 1.0  # change only for computing the minortho value
+            cut_minortho[i] = np.min(cuts_orthogonality[i,:])
+            cuts_orthogonality[i,i] = 0.0  # reset to the correct value
             cut_is_local[i] = SCIProwIsLocal(rows[i])
             cut_is_modifiable[i] = SCIProwIsModifiable(cuts[i])
             cut_is_removable[i] = SCIProwIsRemovable(cuts[i])
@@ -4913,8 +4914,8 @@ cdef class Model:
                     'objparal':            cut_objparal,
                     'efficacy':            cut_efficacy,
                     'dircutoffdist':       cut_dircutoffdist,
-                    'maxparal':            cut_maxparal,
-                    'minparal':            cut_minparal,
+                    'maxortho':            cut_maxortho,
+                    'minortho':            cut_minortho,
                     'is_local':            cut_is_local,
                     'is_modifiable':       cut_is_modifiable,
                     'is_removable':        cut_is_removable,
@@ -4926,7 +4927,7 @@ cdef class Model:
                     'rowidxs': cut_coef_rowidxs,
                     'vals': cut_coef_vals,
                 },
-                'cut_parallelism': cut_parallelism,
+                'cut_parallelism': cuts_orthogonality,
                 'cut_names': cut_names
             }
         elif state_format == 'tensor':
@@ -4971,8 +4972,8 @@ cdef class Model:
                 'objparal',
                 'efficacy',
                 'dircutoffdist',
-                'maxparal',
-                'minparal',
+                'maxortho',
+                'minortho',
                 'is_local',
                 'is_modifiable',
                 'is_removable',
@@ -5021,8 +5022,8 @@ cdef class Model:
                 cut_objparal,
                 cut_efficacy,
                 cut_dircutoffdist,
-                cut_maxparal,
-                cut_minparal,
+                cut_maxortho,
+                cut_minortho,
                 cut_is_local,
                 cut_is_modifiable,
                 cut_is_removable,
@@ -5037,7 +5038,7 @@ cdef class Model:
                 'Ck': Cfeats,
                 'Vk': Vfeats,
                 'Ak': Afeats,
-                'cut_parallelism': cut_parallelism,
+                'cut_parallelism': cuts_orthogonality,
                 'nzrcoef': {
                     'colidxs': coef_colidxs,
                     'rowidxs': coef_rowidxs,
