@@ -4927,7 +4927,7 @@ cdef class Model:
                     'rowidxs': cut_coef_rowidxs,
                     'vals': cut_coef_vals,
                 },
-                'cut_parallelism': cuts_orthogonality,
+                'cuts_orthogonality': cuts_orthogonality,
                 'cut_names': cut_names
             }
         elif state_format == 'tensor':
@@ -5038,7 +5038,7 @@ cdef class Model:
                 'Ck': Cfeats,
                 'Vk': Vfeats,
                 'Ak': Afeats,
-                'cut_parallelism': cuts_orthogonality,
+                'cuts_orthogonality': cuts_orthogonality,
                 'nzrcoef': {
                     'colidxs': coef_colidxs,
                     'rowidxs': coef_rowidxs,
