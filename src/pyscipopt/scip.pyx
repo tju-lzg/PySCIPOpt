@@ -4738,7 +4738,33 @@ cdef class Model:
             if query_rows is not None:
                 row_name = SCIProwGetName(rows[i])
                 if query_rows.get(row_name, None) is not None:
-                    query_rows[row_name] = 1
+                    query_rows[row_name] = {'applied': 1,
+                                            'activity': activity - cst}
+
+        cdef np.ndarray[np.int32_t,   ndim=1] query_rows_applied
+        cdef np.ndarray[np.float32_t, ndim=1] query_rows_activity
+        if query_rows is not None:
+            # for query rows which are in the LP:
+            # activity = 0 if active
+            #          < 0 if not active
+            # for query rows which are not in the LP at all, we assign activity 0
+            # not because they are active, but rather because this is
+            # the value needed for the RL agent later.
+            # actually we are interested only in the inactive cuts added
+            # by the RL agent to punish those actions when propagating the reward,
+            # and thereby to assign the credit only to the active cuts.
+            query_rows_activity = np.zeros(shape=(len(query_rows),), dtype=np.float32)
+            query_rows_applied = np.zeros(shape=(len(query_rows),), dtype=np.int32)
+            for i, row in enumerate(query_rows.values()):
+                query_rows_applied[i] = row['applied']
+                query_rows_activity[i] = row['activity']
+            query_rows['activity'] = query_rows_activity
+            query_rows['applied'] = query_rows_applied
+
+
+
+
+
 
         cdef np.ndarray[np.int32_t,   ndim=1] coef_colidxs
         cdef np.ndarray[np.int32_t,   ndim=1] coef_rowidxs
