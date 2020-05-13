@@ -4857,7 +4857,7 @@ cdef class Model:
             cut_is_efficacious[i] = SCIPisCutEfficacious(scip, NULL, cuts[i])  # self.isCutEfficacious(cut)
             cuts_nnzrs += cut_nnzrs[i]
             if return_cut_names:
-                cut_names[SCIProwGetName(cuts[i])] = 0
+                cut_names[SCIProwGetName(cuts[i])] = {'applied': 0, 'activity': 0}
 
         # nzr coef of cuts
         cdef np.ndarray[np.int32_t,   ndim=1] cut_coef_colidxs = np.empty(shape=(cuts_nnzrs, ), dtype=np.int32)
