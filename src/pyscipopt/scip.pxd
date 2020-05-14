@@ -643,6 +643,7 @@ cdef extern from "scip/scip.h":
     SCIP_STATUS SCIPgetStatus(SCIP* scip)
     SCIP_Real SCIPepsilon(SCIP* scip)
     SCIP_Real SCIPfeastol(SCIP* scip)
+    SCIP_RETCODE SCIPwriteLP(SCIP* scip, const char* filename)
 
     # Solve Methods
     SCIP_RETCODE SCIPsolve(SCIP* scip)

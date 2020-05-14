@@ -4379,6 +4379,9 @@ cdef class Model:
         absfile = str_conversion(abspath(file))
         PY_SCIP_CALL(SCIPreadParams(self._scip, absfile))
 
+    def writeLP(self, filename='problem.lp'):
+        return SCIPwriteLP(self._scip, str_conversion(filename))
+
     def writeParams(self, filename='param.set', comments = True, onlychanged = True):
         """Write parameter settings to an external file.
 
