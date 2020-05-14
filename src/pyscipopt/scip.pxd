@@ -1694,6 +1694,8 @@ cdef extern from "scip/lp.h":
 cdef extern from "scip/scip_cut.h":
     SCIP_ROW** SCIPgetCuts(SCIP* scip)
 
+cdef extern from "scip/sepastore.h":
+    SCIP_RETCODE SCIPforceCuts(SCIP* scip, int* forcedcuts, int nforcedcuts)
 
 cdef extern from "scip/def.h":
     SCIP_Real REALABS(SCIP_Real x)

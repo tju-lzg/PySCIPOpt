@@ -4517,6 +4517,24 @@ cdef class Model:
                     break
         return query_rows
 
+    def applyAction(self, action):
+        """
+        :param action: np.ndarray(np.int32, ndim=1) containing 1 for selected cut, and zero otherwise.
+        example: np.array([0,0,1,0,1,0,]).nonzero()[0].astype(np.int32)
+        each element correspond to a cut in the separation storage.
+        the cuts which their corresponding value in action is 1
+        will be forced in the next LP round, and all the others will be discarded.
+        the length of action must be equal to the number of cuts in the separation storage.
+        """
+        cdef int nforcedcuts = sum(action)
+        cdef int* forcedcuts = <int*> malloc(nforcedcuts * sizeof(int))
+        nonzeros = action.nonzero()[0].astype(np.int32)
+        for i in range(nforcedcuts):
+            forcedcuts[i] = nonzeros[i]
+
+        return PY_SCIP_CALL(SCIPforceCuts(self._scip, forcedcuts, nforcedcuts))
+
+
     def getState(self, prev_state=None, state_format='dict', query_rows=None, return_cut_names=False):
         """
 
