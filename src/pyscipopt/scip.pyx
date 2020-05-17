@@ -4716,7 +4716,7 @@ cdef class Model:
 
                 # left-hand-side
                 if SCIPisInfinity(scip, REALABS(lhs)):
-                    row_lhss[i] = NAN
+                    row_lhss[i] = 0 # todo: for some reason the lhs of the mccormick constraints doesn't exists, and results in NAN, although it should be 0
                 else:
                     row_lhss[i] = lhs - cst
 
