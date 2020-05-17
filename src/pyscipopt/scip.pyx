@@ -4517,7 +4517,7 @@ cdef class Model:
                     break
         return query_rows
 
-    def applyAction(self, action):
+    def forceCuts(self, action):
         """
         :param action: np.ndarray(np.int32, ndim=1) containing 1 for selected cut, and zero otherwise.
         example: np.array([0,0,1,0,1,0,]).nonzero()[0].astype(np.int32)
@@ -4535,13 +4535,13 @@ cdef class Model:
         return PY_SCIP_CALL(SCIPforceCuts(self._scip, forcedcuts, nforcedcuts))
 
 
-    def getState(self, prev_state=None, state_format='dict', query_rows=None, return_cut_names=False):
+    def getState(self, prev_state=None, state_format='dict', query=None, get_available_cuts=False):
         """
 
         :param prev_state:
         :param state_format: 'dict' or 'tensor'
-        :param query_rows: a dictionary containing row names to check if they are in LP
-        :param return_cut_names: whether to return a list of the candidate cut names
+        :param query: a dictionary containing row names to check if they are in LP
+        :param get_available_cuts: whether to return a list of the candidate cut names
         :return: state dictionary
         """
         cdef SCIP* scip = self._scip
@@ -4756,15 +4756,16 @@ cdef class Model:
             # Is tight
             row_is_at_lhs[i] = SCIPisEQ(scip, activity, lhs)
             row_is_at_rhs[i] = SCIPisEQ(scip, activity, rhs)
-            if query_rows is not None:
+            if query is not None:
                 row_name = SCIProwGetName(rows[i])
-                if query_rows.get(row_name, None) is not None:
-                    query_rows[row_name] = {'applied': 1,
-                                            'activity': activity - cst}
+                if query.get(row_name, None) is not None:
+                    query[row_name]['applied'] = 1
+                    query[row_name]['activity'] = activity - cst
 
-        cdef np.ndarray[np.int32_t,   ndim=1] query_rows_applied
-        cdef np.ndarray[np.float32_t, ndim=1] query_rows_activity
-        if query_rows is not None:
+        cdef np.ndarray[np.int32_t,   ndim=1] query_cuts_applied
+        cdef np.ndarray[np.int32_t,   ndim=1] query_cuts_selected
+        cdef np.ndarray[np.float32_t, ndim=1] query_cuts_activity
+        if query is not None:
             # for query rows which are in the LP:
             # activity = 0 if active
             #          < 0 if not active
@@ -4774,18 +4775,15 @@ cdef class Model:
             # actually we are interested only in the inactive cuts added
             # by the RL agent to punish those actions when propagating the reward,
             # and thereby to assign the credit only to the active cuts.
-            query_rows_activity = np.zeros(shape=(len(query_rows),), dtype=np.float32)
-            query_rows_applied = np.zeros(shape=(len(query_rows),), dtype=np.int32)
-            for i, row in enumerate(query_rows.values()):
-                query_rows_applied[i] = row['applied']
-                query_rows_activity[i] = row['activity']
-            query_rows['activity'] = query_rows_activity
-            query_rows['applied'] = query_rows_applied
-
-
-
-
-
+            query_cuts_activity = np.zeros(shape=(query['ncuts'],), dtype=np.float32)
+            query_cuts_applied = np.zeros(shape=(query['ncuts'],), dtype=np.int32)
+            for i, row in enumerate(query.values()):
+                query_cuts_applied[i] = row['applied']
+                query_cuts_activity[i] = row['activity']
+                if i == query['ncuts']:
+                    break
+            query['activity'] = query_cuts_activity
+            query['applied'] = query_cuts_applied
 
         cdef np.ndarray[np.int32_t,   ndim=1] coef_colidxs
         cdef np.ndarray[np.int32_t,   ndim=1] coef_rowidxs
@@ -4840,7 +4838,8 @@ cdef class Model:
         cdef np.ndarray[np.int32_t,   ndim=1] cut_is_in_globalcutpool = np.empty(shape=(ncuts), dtype=np.int32)
         cdef np.ndarray[np.int32_t,   ndim=1] cut_is_efficacious      = np.empty(shape=(ncuts), dtype=np.int32)
 
-        cut_names = OrderedDict()
+        available_cuts = OrderedDict()
+        cdef np.ndarray[np.float32_t, ndim=1] cut_constants           = np.empty(shape=(ncuts), dtype=np.float32)
         # inter cuts parallelism
         cdef np.ndarray[np.float32_t, ndim=2] cuts_orthogonality      = np.empty(shape=(ncuts, ncuts), dtype=np.float32)
         # total num non-zero coefficients of cuts
@@ -4851,6 +4850,7 @@ cdef class Model:
             lhs = SCIProwGetLhs(cuts[i])
             rhs = SCIProwGetRhs(cuts[i])
             cst = SCIProwGetConstant(cuts[i])
+            cut_constants[i] = cst
             cut_lhss[i] = NAN if SCIPisInfinity(scip, REALABS(lhs)) else lhs - cst
             cut_rhss[i] = NAN if SCIPisInfinity(scip, REALABS(rhs)) else rhs - cst
             cut_nnzrs[i] = SCIProwGetNNonz(cuts[i])
@@ -4877,8 +4877,12 @@ cdef class Model:
             cut_is_in_globalcutpool[i] = SCIProwIsInGlobalCutpool(cuts[i])  # cut.isInGlobalCutpool()
             cut_is_efficacious[i] = SCIPisCutEfficacious(scip, NULL, cuts[i])  # self.isCutEfficacious(cut)
             cuts_nnzrs += cut_nnzrs[i]
-            if return_cut_names:
-                cut_names[SCIProwGetName(cuts[i])] = {'applied': 0, 'activity': 0}
+            if get_available_cuts:
+                available_cuts[SCIProwGetName(cuts[i])] = {'applied': 0, 'activity': 0}
+        available_cuts['ncuts'] = ncuts
+        available_cuts['constants'] = cut_constants
+
+
 
         # nzr coef of cuts
         cdef np.ndarray[np.int32_t,   ndim=1] cut_coef_colidxs = np.empty(shape=(cuts_nnzrs, ), dtype=np.int32)
@@ -4896,7 +4900,7 @@ cdef class Model:
             for k in range(cut_nnzrs[i]):
                 cut_coef_colidxs[j+k] = SCIPcolGetLPPos(cut_cols[k])
                 cut_coef_rowidxs[j+k] = i
-                cut_coef_vals[j+k] = row_vals[k]
+                cut_coef_vals[j+k] = cut_vals[k]
             j += cut_nnzrs[i]
 
         # global LP stats:
@@ -4913,7 +4917,7 @@ cdef class Model:
         cdef np.ndarray[np.float32_t, ndim=2] V # variables feature matrix
 
         if state_format == 'dict':
-            return {
+            state = {
                 'col': {
                     'types':        col_types,
                     'coefs':        col_coefs,
@@ -4975,8 +4979,8 @@ cdef class Model:
                     'vals': cut_coef_vals,
                 },
                 'cuts_orthogonality': cuts_orthogonality,
-                'cut_names': cut_names
             }
+
         elif state_format == 'tensor':
             Cfeats = [
                 # 'lhss',
@@ -5044,7 +5048,7 @@ cdef class Model:
                 col_avgincvals,
             ]).astype(np.float32).T
             C = np.vstack([
-                # row_lhss,
+                row_lhss,
                 row_rhss,
                 row_nnzrs,
                 row_dualsols,
@@ -5078,7 +5082,7 @@ cdef class Model:
                 cut_is_efficacious,
             ]).astype(np.float32).T
 
-            return {
+            state = {
                 'C': C,
                 'V': V,
                 'A': A,
@@ -5097,8 +5101,12 @@ cdef class Model:
                     'vals': cut_coef_vals,
                 },
                 'stats': stats,
-                'cut_names': cut_names
             }
+
+        if get_available_cuts:
+            return state, available_cuts
+        else:
+            return state
 
 # debugging memory management
 def is_memory_freed():
