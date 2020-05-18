@@ -4778,10 +4778,12 @@ cdef class Model:
             query_cuts_activity = np.zeros(shape=(query['ncuts'],), dtype=np.float32)
             query_cuts_applied = np.zeros(shape=(query['ncuts'],), dtype=np.int32)
             for i, row in enumerate(query.values()):
-                query_cuts_applied[i] = row['applied']
-                query_cuts_activity[i] = row['activity']
+                # the cuts are at the beginning of query, and after that there is non-relevant data
                 if i == query['ncuts']:
                     break
+                query_cuts_applied[i] = row['applied']
+                query_cuts_activity[i] = row['activity']
+
             query['activity'] = query_cuts_activity
             query['applied'] = query_cuts_applied
 
@@ -4826,17 +4828,17 @@ cdef class Model:
         cdef np.ndarray[np.int32_t,   ndim=1] cut_nnzrs               = np.empty(shape=(ncuts, ), dtype=np.int32)
         cdef np.ndarray[np.int32_t,   ndim=1] cut_ages                = np.empty(shape=(ncuts, ), dtype=np.int32)
         cdef np.ndarray[np.float32_t, ndim=1] cut_norms               = np.empty(shape=(ncuts, ), dtype=np.float32)
-        cdef np.ndarray[np.float32_t, ndim=1] cut_intsupport          = np.empty(shape=(ncuts), dtype=np.float32)
-        cdef np.ndarray[np.float32_t, ndim=1] cut_objparal            = np.empty(shape=(ncuts), dtype=np.float32)
-        cdef np.ndarray[np.float32_t, ndim=1] cut_efficacy            = np.empty(shape=(ncuts), dtype=np.float32)
-        cdef np.ndarray[np.float32_t, ndim=1] cut_dircutoffdist       = np.empty(shape=(ncuts), dtype=np.float32)
-        cdef np.ndarray[np.float32_t, ndim=1] cut_maxortho            = np.empty(shape=(ncuts), dtype=np.float32)
-        cdef np.ndarray[np.float32_t, ndim=1] cut_minortho            = np.empty(shape=(ncuts), dtype=np.float32)
-        cdef np.ndarray[np.int32_t,   ndim=1] cut_is_local            = np.empty(shape=(ncuts), dtype=np.int32)
-        cdef np.ndarray[np.int32_t,   ndim=1] cut_is_modifiable       = np.empty(shape=(ncuts), dtype=np.int32)
-        cdef np.ndarray[np.int32_t,   ndim=1] cut_is_removable        = np.empty(shape=(ncuts), dtype=np.int32)
-        cdef np.ndarray[np.int32_t,   ndim=1] cut_is_in_globalcutpool = np.empty(shape=(ncuts), dtype=np.int32)
-        cdef np.ndarray[np.int32_t,   ndim=1] cut_is_efficacious      = np.empty(shape=(ncuts), dtype=np.int32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_intsupport          = np.empty(shape=(ncuts, ), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_objparal            = np.empty(shape=(ncuts, ), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_efficacy            = np.empty(shape=(ncuts, ), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_dircutoffdist       = np.empty(shape=(ncuts, ), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_maxortho            = np.empty(shape=(ncuts, ), dtype=np.float32)
+        cdef np.ndarray[np.float32_t, ndim=1] cut_minortho            = np.empty(shape=(ncuts, ), dtype=np.float32)
+        cdef np.ndarray[np.int32_t,   ndim=1] cut_is_local            = np.empty(shape=(ncuts, ), dtype=np.int32)
+        cdef np.ndarray[np.int32_t,   ndim=1] cut_is_modifiable       = np.empty(shape=(ncuts, ), dtype=np.int32)
+        cdef np.ndarray[np.int32_t,   ndim=1] cut_is_removable        = np.empty(shape=(ncuts, ), dtype=np.int32)
+        cdef np.ndarray[np.int32_t,   ndim=1] cut_is_in_globalcutpool = np.empty(shape=(ncuts, ), dtype=np.int32)
+        cdef np.ndarray[np.int32_t,   ndim=1] cut_is_efficacious      = np.empty(shape=(ncuts, ), dtype=np.int32)
 
         available_cuts = OrderedDict()
         cdef np.ndarray[np.float32_t, ndim=1] cut_constants           = np.empty(shape=(ncuts), dtype=np.float32)
@@ -4934,7 +4936,7 @@ cdef class Model:
                     'avgincvals':   col_avgincvals,
                 },
                 'row': {
-                    # 'lhss':          row_lhss,
+                    'lhss':          row_lhss,
                     'rhss':          row_rhss,
                     'nnzrs':         row_nnzrs,
                     'dualsols':      row_dualsols,
@@ -4983,7 +4985,7 @@ cdef class Model:
 
         elif state_format == 'tensor':
             Cfeats = [
-                # 'lhss',
+                'lhss',
                 'rhss',
                 'nnzrs',
                 'dualsols',
