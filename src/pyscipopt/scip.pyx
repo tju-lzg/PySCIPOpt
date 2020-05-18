@@ -4753,18 +4753,20 @@ cdef class Model:
             # Activity
             row_activities[i] = activity - cst
 
-            # Is tight
+            # Is tight todo - where is cst here?
             row_is_at_lhs[i] = SCIPisEQ(scip, activity, lhs)
             row_is_at_rhs[i] = SCIPisEQ(scip, activity, rhs)
             if query is not None:
                 row_name = SCIProwGetName(rows[i])
                 if query.get(row_name, None) is not None:
                     query[row_name]['applied'] = 1
-                    query[row_name]['activity'] = activity - cst
+                    # cycle inequalities in our form are considered tight iff activity == rhs
+                    # lhs <= activity + cst <= rhs
+                    query[row_name]['tightness_penalty'] = rhs - activity - cst
 
         cdef np.ndarray[np.int32_t,   ndim=1] query_cuts_applied
         cdef np.ndarray[np.int32_t,   ndim=1] query_cuts_selected
-        cdef np.ndarray[np.float32_t, ndim=1] query_cuts_activity
+        cdef np.ndarray[np.float32_t, ndim=1] query_cuts_tightness_penalty
         if query is not None:
             # for query rows which are in the LP:
             # activity = 0 if active
@@ -4775,16 +4777,16 @@ cdef class Model:
             # actually we are interested only in the inactive cuts added
             # by the RL agent to punish those actions when propagating the reward,
             # and thereby to assign the credit only to the active cuts.
-            query_cuts_activity = np.zeros(shape=(query['ncuts'],), dtype=np.float32)
+            query_cuts_tightness_penalty = np.zeros(shape=(query['ncuts'],), dtype=np.float32)
             query_cuts_applied = np.zeros(shape=(query['ncuts'],), dtype=np.int32)
             for i, row in enumerate(query.values()):
                 # the cuts are at the beginning of query, and after that there is non-relevant data
                 if i == query['ncuts']:
                     break
                 query_cuts_applied[i] = row['applied']
-                query_cuts_activity[i] = row['activity']
+                query_cuts_tightness_penalty[i] = row['tightness_penalty']
 
-            query['activity'] = query_cuts_activity
+            query['tightness_penalty'] = query_cuts_tightness_penalty
             query['applied'] = query_cuts_applied
 
         cdef np.ndarray[np.int32_t,   ndim=1] coef_colidxs
@@ -4841,7 +4843,6 @@ cdef class Model:
         cdef np.ndarray[np.int32_t,   ndim=1] cut_is_efficacious      = np.empty(shape=(ncuts, ), dtype=np.int32)
 
         available_cuts = OrderedDict()
-        cdef np.ndarray[np.float32_t, ndim=1] cut_constants           = np.empty(shape=(ncuts), dtype=np.float32)
         # inter cuts parallelism
         cdef np.ndarray[np.float32_t, ndim=2] cuts_orthogonality      = np.empty(shape=(ncuts, ncuts), dtype=np.float32)
         # total num non-zero coefficients of cuts
@@ -4852,7 +4853,7 @@ cdef class Model:
             lhs = SCIProwGetLhs(cuts[i])
             rhs = SCIProwGetRhs(cuts[i])
             cst = SCIProwGetConstant(cuts[i])
-            cut_constants[i] = cst
+            # cut_rhss[i] = cst  # ?
             cut_lhss[i] = NAN if SCIPisInfinity(scip, REALABS(lhs)) else lhs - cst
             cut_rhss[i] = NAN if SCIPisInfinity(scip, REALABS(rhs)) else rhs - cst
             cut_nnzrs[i] = SCIProwGetNNonz(cuts[i])
@@ -4880,9 +4881,12 @@ cdef class Model:
             cut_is_efficacious[i] = SCIPisCutEfficacious(scip, NULL, cuts[i])  # self.isCutEfficacious(cut)
             cuts_nnzrs += cut_nnzrs[i]
             if get_available_cuts:
-                available_cuts[SCIProwGetName(cuts[i])] = {'applied': 0, 'activity': 0}
+                # initialize all tightness penalty to 0, not because they are tight,
+                # but because this value will be used to penalize only applied cuts.
+                # not applied cuts won't be penalized (as for now)
+                available_cuts[SCIProwGetName(cuts[i])] = {'applied': 0, 'tightness_penalty': 0}
         available_cuts['ncuts'] = ncuts
-        available_cuts['constants'] = cut_constants
+        available_cuts['rhss'] = cut_rhss
 
 
 
