@@ -4532,8 +4532,9 @@ cdef class Model:
         for i in range(nforcedcuts):
             forcedcuts[i] = nonzeros[i]
 
-        return PY_SCIP_CALL(SCIPforceCuts(self._scip, forcedcuts, nforcedcuts))
-
+        retcode = PY_SCIP_CALL(SCIPforceCuts(self._scip, forcedcuts, nforcedcuts))
+        free(forcedcuts)
+        return retcode
 
     def getState(self, prev_state=None, state_format='dict', query=None, get_available_cuts=False):
         """
