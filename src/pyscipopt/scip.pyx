@@ -4511,13 +4511,14 @@ cdef class Model:
         cdef SCIP_ROW** rows = SCIPgetLPRows(self._scip)
         # start from the last row and stop if all query rows found in LP
         if query_rows is not None:
-            for i in range(start=nrows-1, stop=0, step=-1):
+            for i in range(nrows-1, 0, 1):
                 row_name = SCIProwGetName(rows[i])
                 if query_rows.get(row_name, None) is not None:
-                    query_rows[row_name] = 1
+                    query_rows[row_name]['applied'] = True
                     nfound += 1
                 if nfound == nqueries:
                     break
+
         return query_rows
 
     def forceCuts(self, action):
@@ -4763,7 +4764,7 @@ cdef class Model:
             if query is not None:
                 row_name = SCIProwGetName(rows[i])
                 if query.get(row_name, None) is not None:
-                    query[row_name]['applied'] = 1
+                    query[row_name]['applied'] = True
                     # cycle inequalities in our form are considered tight iff activity == rhs
                     # lhs <= activity + cst <= rhs
                     query[row_name]['tightness_penalty'] = rhs - activity - cst
