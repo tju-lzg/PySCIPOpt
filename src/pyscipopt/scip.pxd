@@ -770,6 +770,7 @@ cdef extern from "scip/scip.h":
     int SCIPgetNCuts(SCIP* scip)
     int SCIPgetNCutsApplied(SCIP* scip)
     SCIP_RETCODE SCIPseparateSol(SCIP* scip, SCIP_SOL* sol, SCIP_Bool pretendroot, SCIP_Bool allowlocal, SCIP_Bool onlydelayed, SCIP_Bool* delayed, SCIP_Bool* cutoff)
+    SCIP_RETCODE SCIPclearCuts(SCIP* scip)
 
     # Constraint Methods
     SCIP_RETCODE SCIPcaptureCons(SCIP* scip, SCIP_CONS* cons)

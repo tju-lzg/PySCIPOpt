@@ -1894,7 +1894,10 @@ cdef class Model:
 
         PY_SCIP_CALL( SCIPseparateSol(self._scip, NULL if sol is None else sol.sol, pretendroot, allowlocal, onlydelayed, &delayed, &cutoff) )
         return delayed, cutoff
-
+    
+    def clearCuts(self):
+        """ Clear the separation storage """
+        return PY_SCIP_CALL(SCIPclearCuts(self._scip))
 
     # Constraint functions
     def addCons(self, cons, name='', initial=True, separate=True,
@@ -4519,8 +4522,8 @@ cdef class Model:
 
     def forceCuts(self, action):
         """
-        :param action: np.ndarray(np.int32, ndim=1) containing 1 for selected cut, and zero otherwise.
-        example: np.array([0,0,1,0,1,0,]).nonzero()[0].astype(np.int32)
+        :param action: np.ndarray(np.bool, ndim=1) containing 1 for selected cut, and zero otherwise.
+        example action: np.array([0,0,1,0,1,0,]).nonzero()[0].astype(np.bool)
         each element correspond to a cut in the separation storage.
         the cuts which their corresponding value in action is 1
         will be forced in the next LP round, and all the others will be discarded.
@@ -4765,8 +4768,7 @@ cdef class Model:
                     # lhs <= activity + cst <= rhs
                     query[row_name]['tightness_penalty'] = rhs - activity - cst
 
-        cdef np.ndarray[np.int32_t,   ndim=1] query_cuts_applied
-        cdef np.ndarray[np.int32_t,   ndim=1] query_cuts_selected
+        cdef np.ndarray[np.uint8_t,    ndim=1] query_cuts_applied
         cdef np.ndarray[np.float32_t, ndim=1] query_cuts_tightness_penalty
         if query is not None:
             # for query rows which are in the LP:
@@ -4779,7 +4781,7 @@ cdef class Model:
             # by the RL agent to punish those actions when propagating the reward,
             # and thereby to assign the credit only to the active cuts.
             query_cuts_tightness_penalty = np.zeros(shape=(query['ncuts'],), dtype=np.float32)
-            query_cuts_applied = np.zeros(shape=(query['ncuts'],), dtype=np.int32)
+            query_cuts_applied = np.zeros(shape=(query['ncuts'],), dtype=np.bool)
             for i, row in enumerate(query.values()):
                 # the cuts are at the beginning of query, and after that there is non-relevant data
                 if i == query['ncuts']:
@@ -4885,7 +4887,7 @@ cdef class Model:
                 # initialize all tightness penalty to 0, not because they are tight,
                 # but because this value will be used to penalize only applied cuts.
                 # not applied cuts won't be penalized (as for now)
-                available_cuts[SCIProwGetName(cuts[i])] = {'applied': 0, 'tightness_penalty': 0}
+                available_cuts[SCIProwGetName(cuts[i])] = {'applied': False, 'tightness_penalty': 0}
         available_cuts['ncuts'] = ncuts
         available_cuts['rhss'] = cut_rhss
 
