@@ -4530,7 +4530,7 @@ cdef class Model:
         if nodesel == NULL: 
             raise Exception('Error: Node selector not found!')
         nodesel.nodeselect(self._scip, nodesel, &scip_node)
-        return Node.create(bestnode)
+        return Node.create(scip_node)
 
     def getBestNode(self): 
         cdef SCIP_NODE* bestnode 
