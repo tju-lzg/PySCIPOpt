@@ -4525,15 +4525,12 @@ cdef class Model:
     def executeNodeSel(self, str name): 
         cdef SCIP_NODESEL* nodesel 
         cdef SCIP_RESULT result 
-        cdef SCIP_NODE** scip_node
+        cdef SCIP_NODE* scip_node
         nodesel = SCIPfindNodesel(self._scip, name.encode("UTF-8"))
         if nodesel == NULL: 
-            print('Error: Node selector not found!')
-            return PY_SCIP_RESULT.DIDNOTFIND
-        else:
-            #TODO: Make this work?!  
-            nodesel.nodeselect(self._scip, nodesel, scip_node)
-            return PY_SCIP_RESULT.SUCCESS
+            raise Exception('Error: Node selector not found!')
+        nodesel.nodeselect(self._scip, nodesel, &scip_node)
+        return Node.create(bestnode)
 
     def getBestNode(self): 
         cdef SCIP_NODE* bestnode 
