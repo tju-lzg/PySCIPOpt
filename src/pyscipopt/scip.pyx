@@ -722,12 +722,6 @@ cdef class Node:
             return None
         return DomainChanges.create(domchg)
 
-    def isOptChecked(self): 
-        return SCIPnodeIsOptchecked(self.scip_node)
-    
-    def setOptChecked(self): 
-        SCIPnodeSetOptchecked(self.scip_node)
-
     def __hash__(self):
         return hash(<size_t>self.scip_node)
 
@@ -4525,15 +4519,20 @@ cdef class Model:
     def executeNodeSel(self, str name): 
         cdef SCIP_NODESEL* nodesel 
         cdef SCIP_RESULT result 
-        cdef SCIP_NODE** scip_node
+        cdef SCIP_NODE* scip_node
         nodesel = SCIPfindNodesel(self._scip, name.encode("UTF-8"))
-        if nodesel == NULL: 
-            print('Error: Node selector not found!')
-            return PY_SCIP_RESULT.DIDNOTFIND
-        else:
-            #TODO: Make this work?!  
-            nodesel.nodeselect(self._scip, nodesel, scip_node)
-            return PY_SCIP_RESULT.SUCCESS
+        if nodesel == NULL:
+            raise ValueError('Error: Node selector not found!')
+        nodesel.nodeselselect(self._scip, nodesel, &scip_node)
+        return Node.create(scip_node)
+
+    def executeNodeComp(self, str name, Node node1, Node node2):
+        cdef SCIP_NODESEL* nodesel
+        cdef SCIP_RESULT result
+        nodesel = SCIPfindNodesel(self._scip, name.encode("UTF-8"))
+        if nodesel == NULL:
+            raise ValueError('Error: Node selector not found!')
+        return nodesel.nodeselcomp(self._scip, nodesel, node1.scip_node, node2.scip_node)
 
     def getBestNode(self): 
         cdef SCIP_NODE* bestnode 

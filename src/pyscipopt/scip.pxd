@@ -360,10 +360,6 @@ cdef extern from "scip/scip.h":
     ctypedef struct SCIP_NODE:
         pass
 
-    ctypedef struct SCIP_NODESEL:
-        char* name
-        SCIP_RETCODE (*nodeselect)(SCIP* scip, SCIP_NODESEL* nodesel, SCIP_NODE** selnode)
-    
     ctypedef struct SCIP_NODESELDATA:
         pass
 
@@ -1273,8 +1269,6 @@ cdef extern from "scip/scip.h":
 
 cdef extern from "scip/tree.h":
     int SCIPnodeGetNAddedConss(SCIP_NODE* node)
-    SCIP_Bool SCIPnodeIsOptchecked(SCIP_NODE* node)
-    void SCIPnodeSetOptchecked(SCIP_NODE* node)
 
 cdef extern from "scip/pub_tree.h": 
     OPT_FLAG SCIPnodeIsOptimal(SCIP_NODE* node)
@@ -1678,8 +1672,18 @@ cdef extern from "scip/scip_nodesel.h":
     SCIP_NODESEL* SCIPgetNodesel(SCIP* scip)
     SCIP_NODESEL* SCIPfindNodesel(SCIP* scip, const char* name)
 
-cdef extern from "scip/nodesel.h": 
-    SCIP_RETCODE SCIPnodeselSelect(SCIP_NODESEL* nodesel,  SCIP_SET* set, SCIP_NODE** selnode)
+cdef extern from "scip/struct_nodesel.h":
+    ctypedef struct SCIP_NODESEL:
+        char* name
+        char* desc
+        SCIP_RETCODE (*nodeselcopy)(SCIP* scip, SCIP_NODESEL* nodesel)
+        SCIP_RETCODE (*nodeselfree)(SCIP* scip, SCIP_NODESEL* nodesel)
+        SCIP_RETCODE (*nodeselinit)(SCIP* scip, SCIP_NODESEL* nodesel)
+        SCIP_RETCODE (*nodeselexit)(SCIP* scip, SCIP_NODESEL* nodesel)
+        SCIP_RETCODE (*nodeselinitsol)(SCIP* scip, SCIP_NODESEL* nodesel)
+        SCIP_RETCODE (*nodeselexitsol)(SCIP* scip, SCIP_NODESEL* nodesel)
+        SCIP_RETCODE (*nodeselselect)(SCIP* scip, SCIP_NODESEL* nodesel, SCIP_NODE** selnode)
+        int (*nodeselcomp)(SCIP* scip, SCIP_NODESEL* nodesel, SCIP_NODE* node1, SCIP_NODE* node2)
 
 cdef class Expr:
     cdef public terms
