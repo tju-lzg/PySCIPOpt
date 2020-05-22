@@ -4704,16 +4704,16 @@ cdef class Model:
             row_is_removable  = prev_state['row']['is_removable']
 
         cdef int nnzrs = 0
-        cdef SCIP_Real activity, lhs, rhs, cst
+        cdef SCIP_Real activity, lhs, rhs, cst, norm
 
         for i in range(nrows):
 
-            # lhs <= activity + cst <= rhs
+            # lhs <= activity + cst <= rhs  # todo - explain is cst exactly and where does it come from?
             lhs = SCIProwGetLhs(rows[i])
             rhs = SCIProwGetRhs(rows[i])
             cst = SCIProwGetConstant(rows[i])
             activity = SCIPgetRowLPActivity(scip, rows[i])  # cst is part of activity
-
+            norm = SCIProwGetNorm(rows[i])
             if not update:
                 # number of coefficients
                 row_nnzrs[i] = SCIProwGetNLPNonz(rows[i])
@@ -4767,10 +4767,10 @@ cdef class Model:
                     query[row_name]['applied'] = True
                     # cycle inequalities in our form are considered tight iff activity == rhs
                     # lhs <= activity + cst <= rhs
-                    query[row_name]['tightness_penalty'] = rhs - activity - cst
+                    query[row_name]['normalized_slack'] = (rhs - activity - cst) / norm  # todo: verify
 
         cdef np.ndarray[np.uint8_t,    ndim=1] query_cuts_applied
-        cdef np.ndarray[np.float32_t, ndim=1] query_cuts_tightness_penalty
+        cdef np.ndarray[np.float32_t, ndim=1] query_cuts_normalized_slack
         if query is not None:
             # for query rows which are in the LP:
             # activity = 0 if active
@@ -4781,16 +4781,16 @@ cdef class Model:
             # actually we are interested only in the inactive cuts added
             # by the RL agent to punish those actions when propagating the reward,
             # and thereby to assign the credit only to the active cuts.
-            query_cuts_tightness_penalty = np.zeros(shape=(query['ncuts'],), dtype=np.float32)
+            query_cuts_normalized_slack = np.zeros(shape=(query['ncuts'],), dtype=np.float32)
             query_cuts_applied = np.zeros(shape=(query['ncuts'],), dtype=np.bool)
             for i, row in enumerate(query.values()):
                 # the cuts are at the beginning of query, and after that there is non-relevant data
                 if i == query['ncuts']:
                     break
                 query_cuts_applied[i] = row['applied']
-                query_cuts_tightness_penalty[i] = row['tightness_penalty']
+                query_cuts_normalized_slack[i] = row['normalized_slack']
 
-            query['tightness_penalty'] = query_cuts_tightness_penalty
+            query['normalized_slack'] = query_cuts_normalized_slack
             query['applied'] = query_cuts_applied
 
         cdef np.ndarray[np.int32_t,   ndim=1] coef_colidxs
@@ -4888,7 +4888,7 @@ cdef class Model:
                 # initialize all tightness penalty to 0, not because they are tight,
                 # but because this value will be used to penalize only applied cuts.
                 # not applied cuts won't be penalized (as for now)
-                available_cuts[SCIProwGetName(cuts[i])] = {'applied': False, 'tightness_penalty': 0}
+                available_cuts[SCIProwGetName(cuts[i])] = {'applied': False, 'normalized_slack': 0}
         available_cuts['ncuts'] = ncuts
         available_cuts['rhss'] = cut_rhss
 
