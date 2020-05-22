@@ -289,7 +289,10 @@ cdef extern from "scip/scip.h":
         pass 
 
     ctypedef struct SCIP:
-        SCIP_SET* set 
+        SCIP_SET* set
+        SCIP_STAT* stat
+        SCIP_PROB* transprob
+        SCIP_PROB* origprob
 
     ctypedef struct SCIP_VAR:
         pass
@@ -476,6 +479,12 @@ cdef extern from "scip/scip.h":
         pass
 
     ctypedef union SCIP_DOMCHG:
+        pass
+
+    ctypedef struct SCIP_STAT:
+        SCIP_Real primaldualintegral
+
+    ctypedef struct SCIP_PROB:
         pass
 
     ctypedef void (*messagecallback) (SCIP_MESSAGEHDLR *messagehdlr, FILE *file, const char *msg)
@@ -1684,6 +1693,10 @@ cdef extern from "scip/struct_nodesel.h":
         SCIP_RETCODE (*nodeselexitsol)(SCIP* scip, SCIP_NODESEL* nodesel)
         SCIP_RETCODE (*nodeselselect)(SCIP* scip, SCIP_NODESEL* nodesel, SCIP_NODE** selnode)
         int (*nodeselcomp)(SCIP* scip, SCIP_NODESEL* nodesel, SCIP_NODE* node1, SCIP_NODE* node2)
+
+cdef extern from "scip/stat.h":
+    SCIP_Real SCIPstatGetPrimalDualIntegral(SCIP_STAT *stat, SCIP_SET *set, SCIP_PROB *transprob, SCIP_PROB *origprob)
+
 
 cdef class Expr:
     cdef public terms

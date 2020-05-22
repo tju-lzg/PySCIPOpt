@@ -4539,6 +4539,10 @@ cdef class Model:
         bestnode = SCIPgetBestNode(self._scip)
         return Node.create(bestnode)
 
+    def getStatPrimalDualIntegral(self):
+        # return SCIPstatGetPrimalDualIntegral(self._scip.stat, self._scip.set, self._scip.transprob, self._scip.origprob)
+        return self._scip.stat.primaldualintegral
+
     #def getNodeselData(self, nodesel): 
     #    cdef SCIP_NODESELDATA* nodeseldata 
     #    nodeseldata = SCIPnodeselGetData(nodesel)
