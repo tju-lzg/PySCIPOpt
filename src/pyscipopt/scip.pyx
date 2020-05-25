@@ -1073,6 +1073,10 @@ cdef class Model:
         """Retrieve current node."""
         return Node.create(SCIPgetCurrentNode(self._scip))
 
+    def getRootNode(self):
+        """Retrieve root node."""
+        return Node.create(SCIPgetRootNode(self._scip))
+
     def getGap(self):
         """Retrieve the gap, i.e. |(primalbound - dualbound)/min(|primalbound|,|dualbound|)|."""
         return SCIPgetGap(self._scip)

@@ -1280,7 +1280,7 @@ cdef extern from "scip/tree.h":
     int SCIPnodeGetNAddedConss(SCIP_NODE* node)
 
 cdef extern from "scip/pub_tree.h": 
-    OPT_FLAG SCIPnodeIsOptimal(SCIP_NODE* node)
+    SCIP_NODE* SCIPgetRootNode(SCIP* scip)
 
 cdef extern from "scip/scipdefplugins.h":
     SCIP_RETCODE SCIPincludeDefaultPlugins(SCIP* scip)
