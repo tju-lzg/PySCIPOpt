@@ -4527,7 +4527,7 @@ cdef class Model:
         nodesel = SCIPfindNodesel(self._scip, name.encode("UTF-8"))
         if nodesel == NULL:
             raise ValueError('Error: Node selector not found!')
-        nodesel.nodeselselect(self._scip, nodesel, &scip_node)
+        PY_SCIP_CALL(nodesel.nodeselselect(self._scip, nodesel, &scip_node))
         return Node.create(scip_node)
 
     def executeNodeComp(self, str name, Node node1, Node node2):
