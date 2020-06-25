@@ -4540,6 +4540,15 @@ cdef class Model:
         free(forcedcuts)
         return retcode
 
+    def getCuts(self):
+        """ Returns a list of the currently available cuts """
+        cdef int ncuts = SCIPgetNCuts(self._scip)
+        cdef SCIP_ROW** scip_rows = SCIPgetCuts(self._scip)
+        cuts = []
+        for i in range(ncuts):
+            cuts.append(Row.create(scip_rows[i]))
+        return cuts
+
     def getState(self, prev_state=None, state_format='dict', query=None, get_available_cuts=False):
         """
 
