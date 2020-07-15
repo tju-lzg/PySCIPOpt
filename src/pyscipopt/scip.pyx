@@ -4549,6 +4549,14 @@ cdef class Model:
             cuts.append(Row.create(scip_rows[i]))
         return cuts
 
+    def getSelectedCutsNames(self):
+        cdef char** names = NULL
+        cdef int n_selected_cuts = SCIPgetSelectedCutsNames(self._scip, &names)
+        names_list = []
+        for i in range(n_selected_cuts):
+            names_list.append(bytes(names[i]).decode('utf-8'))
+        return names_list
+
     def getState(self, prev_state=None, state_format='dict', query=None, get_available_cuts=False):
         """
 
