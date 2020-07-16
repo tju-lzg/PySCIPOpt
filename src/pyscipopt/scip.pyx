@@ -4779,7 +4779,7 @@ cdef class Model:
             row_is_at_lhs[i] = SCIPisEQ(scip, activity, lhs)
             row_is_at_rhs[i] = SCIPisEQ(scip, activity, rhs)
             if query is not None:
-                row_name = SCIProwGetName(rows[i])
+                row_name = bytes(SCIProwGetName(rows[i])).decode('utf-8')
                 if query.get(row_name, None) is not None:
                     query[row_name]['applied'] = True
                     # cycle inequalities in our form are considered tight iff activity == rhs
@@ -4809,7 +4809,7 @@ cdef class Model:
 
             # assign the selection order (for learning from demonstrations)
             for i in range(n_selected_cuts):
-                query[selected_cuts_ordered_names[i]]['selection_order'] = i
+                query[bytes(selected_cuts_ordered_names[i]).decode('utf-8')]['selection_order'] = i
 
             for i, row in enumerate(query.values()):
                 # the cuts are at the beginning of query, and after that there is non-relevant data
@@ -4917,7 +4917,7 @@ cdef class Model:
                 # initialize all tightness penalty to 0, not because they are tight,
                 # but because this value will be used to penalize only applied cuts.
                 # not applied cuts won't be penalized (as for now)
-                available_cuts[SCIProwGetName(cuts[i])] = {'applied': False, 'normalized_slack': 0, 'selection_order': ncuts}
+                available_cuts[bytes(SCIProwGetName(cuts[i])).decode('utf-8')] = {'applied': False, 'normalized_slack': 0, 'selection_order': ncuts}
         available_cuts['ncuts'] = ncuts
         available_cuts['rhss'] = cut_rhss
 
