@@ -4820,7 +4820,7 @@ cdef class Model:
                 query_cuts_selection_order[i] = row['selection_order']
             query['normalized_slack'] = query_cuts_normalized_slack
             query['applied'] = query_cuts_applied
-            query['selected_idxes_ordered'] = np.argsort(query_cuts_selection_order)[:n_selected_cuts]
+            query['selection_order'] = np.argsort(query_cuts_selection_order)[:n_selected_cuts]
 
         cdef np.ndarray[np.int32_t,   ndim=1] coef_colidxs
         cdef np.ndarray[np.int32_t,   ndim=1] coef_rowidxs
