@@ -30,7 +30,7 @@ include "nodesel.pxi"
 # recommended SCIP version; major version is required
 MAJOR = 7
 MINOR = 0
-PATCH = 0
+PATCH = 1
 
 # for external user functions use def; for functions used only inside the interface (starting with _) use cdef
 # todo: check whether this is currently done like this
@@ -754,14 +754,16 @@ cdef class Variable(Expr):
         return self.name
 
     def vtype(self):
-        """Retrieve the variables type (BINARY, INTEGER or CONTINUOUS)"""
+        """Retrieve the variables type (BINARY, INTEGER, IMPLINT or CONTINUOUS)"""
         vartype = SCIPvarGetType(self.scip_var)
         if vartype == SCIP_VARTYPE_BINARY:
             return "BINARY"
         elif vartype == SCIP_VARTYPE_INTEGER:
             return "INTEGER"
-        elif vartype == SCIP_VARTYPE_CONTINUOUS or vartype == SCIP_VARTYPE_IMPLINT:
+        elif vartype == SCIP_VARTYPE_CONTINUOUS:
             return "CONTINUOUS"
+        elif vartype == SCIP_VARTYPE_IMPLINT:
+            return "IMPLINT"
 
     def isOriginal(self):
         """Retrieve whether the variable belongs to the original problem"""
@@ -876,6 +878,10 @@ cdef class Constraint:
     def isStickingAtNode(self):
         """Retrieve True if constraint is only locally valid or not added to any (sub)problem"""
         return SCIPconsIsStickingAtNode(self.scip_cons)
+
+    def isActive(self):
+        """returns True iff constraint is active in the current node"""
+        return SCIPconsIsActive(self.scip_cons)
 
     def isLinear(self):
         """Retrieve True if constraint is linear"""
@@ -1296,6 +1302,27 @@ cdef class Model:
         else:
             return SCIPgetTransObjoffset(self._scip)
 
+
+    def setObjIntegral(self):
+        """informs SCIP that the objective value is always integral in every feasible solution
+        Note: This function should be used to inform SCIP that the objective function is integral, helping to improve the
+        performance. This is useful when using column generation. If no column generation (pricing) is used, SCIP
+        automatically detects whether the objective function is integral or can be scaled to be integral. However, in
+        any case, the user has to make sure that no variable is added during the solving process that destroys this
+        property.
+        """
+        PY_SCIP_CALL(SCIPsetObjIntegral(self._scip))
+
+    def getLocalEstimate(self, original = False):
+        """gets estimate of best primal solution w.r.t. original or transformed problem contained in current subtree
+
+        :param original: estimate of original or transformed problem (Default value = False)
+        """
+        if original:
+            return SCIPgetLocalOrigEstimate(self._scip)
+        else:
+            return SCIPgetLocalTransEstimate(self._scip)
+
     # Setting parameters
     def setPresolve(self, setting):
         """Set presolving parameter settings.
@@ -1336,11 +1363,12 @@ cdef class Model:
         if not onlyroot:
             self.setIntParam("propagating/maxrounds", 0)
 
-    def writeProblem(self, filename='model.cip', trans=False):
+    def writeProblem(self, filename='model.cip', trans=False, genericnames=False):
         """Write current model/problem to a file.
 
         :param filename: the name of the file to be used (Default value = 'model.cip')
         :param trans: indicates whether the transformed problem is written to file (Default value = False)
+        :param genericnames: indicates whether the problem should be written with generic variable and constraint names (Default value = False)
 
         """
         fn = str_conversion(filename)
@@ -1350,9 +1378,9 @@ cdef class Model:
         fn = fn + ext
         ext = ext[1:]
         if trans:
-            PY_SCIP_CALL(SCIPwriteTransProblem(self._scip, fn, ext, False))
+            PY_SCIP_CALL(SCIPwriteTransProblem(self._scip, fn, ext, genericnames))
         else:
-            PY_SCIP_CALL(SCIPwriteOrigProblem(self._scip, fn, ext, False))
+            PY_SCIP_CALL(SCIPwriteOrigProblem(self._scip, fn, ext, genericnames))
         print('wrote problem to file ' + str(fn))
 
     # Variable Functions
@@ -1361,35 +1389,40 @@ cdef class Model:
         """Create a new variable. Default variable is non-negative and continuous.
 
         :param name: name of the variable, generic if empty (Default value = '')
-        :param vtype: type of the variable (Default value = 'C')
+        :param vtype: type of the variable: 'C' continuous, 'I' integer, 'B' binary, and 'M' implicit integer
+        (see https://www.scipopt.org/doc/html/FAQ.php#implicitinteger) (Default value = 'C')
         :param lb: lower bound of the variable, use None for -infinity (Default value = 0.0)
         :param ub: upper bound of the variable, use None for +infinity (Default value = None)
         :param obj: objective value of variable (Default value = 0.0)
         :param pricedVar: is the variable a pricing candidate? (Default value = False)
 
         """
+        cdef SCIP_VAR* scip_var
 
         # replace empty name with generic one
         if name == '':
             name = 'x'+str(SCIPgetNVars(self._scip)+1)
-
         cname = str_conversion(name)
+
+        # replace None with corresponding infinity
         if lb is None:
             lb = -SCIPinfinity(self._scip)
-        cdef SCIP_VAR* scip_var
+        if ub is None:
+            ub = SCIPinfinity(self._scip)
+
         vtype = vtype.upper()
         if vtype in ['C', 'CONTINUOUS']:
-            if ub is None:
-                ub = SCIPinfinity(self._scip)
             PY_SCIP_CALL(SCIPcreateVarBasic(self._scip, &scip_var, cname, lb, ub, obj, SCIP_VARTYPE_CONTINUOUS))
         elif vtype in ['B', 'BINARY']:
-            if ub is None:
+            if ub > 1.0:
                 ub = 1.0
+            if lb < 0.0:
+                lb = 0.0
             PY_SCIP_CALL(SCIPcreateVarBasic(self._scip, &scip_var, cname, lb, ub, obj, SCIP_VARTYPE_BINARY))
         elif vtype in ['I', 'INTEGER']:
-            if ub is None:
-                ub = SCIPinfinity(self._scip)
             PY_SCIP_CALL(SCIPcreateVarBasic(self._scip, &scip_var, cname, lb, ub, obj, SCIP_VARTYPE_INTEGER))
+        elif vtype in ['M', 'IMPLINT']:
+            PY_SCIP_CALL(SCIPcreateVarBasic(self._scip, &scip_var, cname, lb, ub, obj, SCIP_VARTYPE_IMPLINT))
         else:
             raise Warning("unrecognized variable type")
 
@@ -1600,6 +1633,8 @@ cdef class Model:
             PY_SCIP_CALL(SCIPchgVarType(self._scip, var.scip_var, SCIP_VARTYPE_BINARY, &infeasible))
         elif vtype in ['I', 'INTEGER']:
             PY_SCIP_CALL(SCIPchgVarType(self._scip, var.scip_var, SCIP_VARTYPE_INTEGER, &infeasible))
+        elif vtype in ['M', 'IMPLINT']:
+            PY_SCIP_CALL(SCIPchgVarType(self._scip, var.scip_var, SCIP_VARTYPE_IMPLINT, &infeasible))
         else:
             raise Warning("unrecognized variable type")
         if infeasible:
@@ -1656,7 +1691,7 @@ cdef class Model:
         """
         PY_SCIP_CALL(SCIPupdateNodeLowerbound(self._scip, node.scip_node, lb))
 
-    # node methods
+    # Node methods
     def getBestChild(self):
         """gets the best child of the focus node w.r.t. the node selection strategy."""
         return Node.create(SCIPgetBestChild(self._scip))
@@ -1696,6 +1731,11 @@ cdef class Model:
         siblings = [Node.create(_siblings[i]) for i in range(_nsiblings)]
 
         return leaves, children, siblings
+
+    def repropagateNode(self, Node node):
+        """marks the given node to be propagated again the next time a node of its subtree is processed"""
+        PY_SCIP_CALL(SCIPrepropagateNode(self._scip, node.scip_node))
+
 
     # LP Methods
     def getLPSolstat(self):
@@ -2185,6 +2225,7 @@ cdef class Model:
             PY_SCIP_CALL(SCIPaddConsNode(self._scip, node.scip_node, cons.scip_cons, validnode.scip_node))
         else:
             PY_SCIP_CALL(SCIPaddConsNode(self._scip, node.scip_node, cons.scip_cons, NULL))
+        Py_INCREF(cons)
 
     def addConsLocal(self, Constraint cons, Node validnode=None):
         """Add a constraint to the current node
@@ -2197,6 +2238,7 @@ cdef class Model:
             PY_SCIP_CALL(SCIPaddConsLocal(self._scip, cons.scip_cons, validnode.scip_node))
         else:
             PY_SCIP_CALL(SCIPaddConsLocal(self._scip, cons.scip_cons, NULL))
+        Py_INCREF(cons)
 
     def addConsSOS1(self, vars, weights=None, name="SOS1cons",
                 initial=True, separate=True, enforce=True, check=True,
