@@ -4466,11 +4466,11 @@ cdef class Model:
 
     def getUpperbound(self):
         """gets global upper (primal) bound in transformed problem"""
-        return SCIPgetPrimalbound(self._scip)
+        return SCIPgetUpperbound(self._scip)
 
     def getLowerbound(self):
         """gets global lower (dual) bound in transformed problem"""
-        return SCIPgetPrimalbound(self._scip)
+        return SCIPgetLowerbound(self._scip)
 
     def getPrimalbound(self):
         """Retrieve the best primal bound."""
