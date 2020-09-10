@@ -1,5 +1,5 @@
 import unittest
-from pyscipopt import Model
+from pyscipopt_gasse import Model
 
 class ReoptimizationTest(unittest.TestCase):
 

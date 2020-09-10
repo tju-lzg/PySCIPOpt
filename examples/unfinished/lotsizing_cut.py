@@ -7,7 +7,7 @@ Approaches:
 
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
-from pyscipopt import Model, quicksum, multidict
+from pyscipopt_gasse import Model, quicksum, multidict
 
 def sils(T,f,c,d,h):
     """sils -- LP lotsizing for the single item lot sizing problem

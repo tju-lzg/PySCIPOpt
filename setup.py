@@ -44,7 +44,7 @@ if "--debug" in sys.argv:
 
 cythonize = True
 
-packagedir = os.path.join('src', 'pyscipopt')
+packagedir = os.path.join('src', 'pyscipopt_gasse')
 
 with open(os.path.join(packagedir, '__init__.py'), 'r') as initfile:
     version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
@@ -63,7 +63,7 @@ if not os.path.exists(os.path.join(packagedir, 'scip.pyx')):
 
 ext = '.pyx' if cythonize else '.c'
 
-extensions = [Extension('pyscipopt.scip', [os.path.join(packagedir, 'scip'+ext)],
+extensions = [Extension('pyscipopt_gasse.scip', [os.path.join(packagedir, 'scip'+ext)],
                           include_dirs=[includedir, numpy.get_include()],
                           library_dirs=[libdir],
                           libraries=[libname],
@@ -79,7 +79,7 @@ with open('README.md') as f:
     long_description = f.read()
 
 setup(
-    name = 'PySCIPOpt',
+    name = 'PySCIPOpt-Gasse',
     version = version,
     description = 'Python interface and modeling environment for SCIP',
     long_description = long_description,
@@ -97,7 +97,7 @@ setup(
     'Programming Language :: Cython',
     'Topic :: Scientific/Engineering :: Mathematics'],
     ext_modules = extensions,
-    packages = ['pyscipopt'],
-    package_dir = {'pyscipopt': packagedir},
-    package_data = {'pyscipopt': ['scip.pyx', 'scip.pxd', '*.pxi']}
+    packages = ['pyscipopt_gasse'],
+    package_dir = {'pyscipopt_gasse': packagedir},
+    package_data = {'pyscipopt_gasse': ['scip.pyx', 'scip.pxd', '*.pxi']}
 )

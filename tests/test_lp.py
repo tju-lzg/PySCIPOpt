@@ -1,4 +1,4 @@
-from pyscipopt import LP
+from pyscipopt_gasse import LP
 
 def test_lp():
     # create LP instance, minimizing by default

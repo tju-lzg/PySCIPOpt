@@ -38,7 +38,7 @@ following steps are always required when using the interface:
     by including the line
 
 ``` {.sourceCode .python}
-from pyscipopt import Model
+from pyscipopt_gasse import Model
 ```
 
 2)  Create a solver instance.
@@ -154,8 +154,8 @@ Therefore, you should use the following settings when trying to work
 with dual information:
 
 ``` {.sourceCode .python}
-model.setPresolve(pyscipopt.SCIP_PARAMSETTING.OFF)
-model.setHeuristics(pyscipopt.SCIP_PARAMSETTING.OFF)
+model.setPresolve(pyscipopt_gasse.SCIP_PARAMSETTING.OFF)
+model.setHeuristics(pyscipopt_gasse.SCIP_PARAMSETTING.OFF)
 model.disablePropagation()
 ```
 

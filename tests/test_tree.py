@@ -1,6 +1,6 @@
 import pytest
 
-from pyscipopt import Model, Eventhdlr, SCIP_RESULT, SCIP_EVENTTYPE, SCIP_PARAMSETTING
+from pyscipopt_gasse import Model, Eventhdlr, SCIP_RESULT, SCIP_EVENTTYPE, SCIP_PARAMSETTING
 
 
 class NodeEventHandler(Eventhdlr):

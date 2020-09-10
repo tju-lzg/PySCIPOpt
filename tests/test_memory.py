@@ -1,5 +1,5 @@
 import pytest
-from pyscipopt.scip import Model, is_memory_freed
+from pyscipopt_gasse.scip import Model, is_memory_freed
 from util import is_optimized_mode
 
 def test_not_freed():

@@ -14,7 +14,7 @@ Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 import math
 import random
 import networkx
-from pyscipopt import Model, quicksum
+from pyscipopt_gasse import Model, quicksum
 
 def solve_tsp(V,c):
     """solve_tsp -- solve the traveling salesman problem

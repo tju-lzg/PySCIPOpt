@@ -4,7 +4,7 @@
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
 
-from pyscipopt import Model, quicksum, multidict
+from pyscipopt_gasse import Model, quicksum, multidict
 
 def gcp(V,E,K):
     """gcp -- model for minimizing the number of colors in a graph

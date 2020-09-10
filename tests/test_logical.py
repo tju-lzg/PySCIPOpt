@@ -1,5 +1,5 @@
-from pyscipopt import Model
-from pyscipopt import quicksum
+from pyscipopt_gasse import Model
+from pyscipopt_gasse import quicksum
 
 try:
     import pytest

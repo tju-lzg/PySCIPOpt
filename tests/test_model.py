@@ -1,6 +1,6 @@
 import pytest
 
-from pyscipopt import Model
+from pyscipopt_gasse import Model
 
 def test_model():
     # create solver instance

@@ -1,4 +1,4 @@
-from pyscipopt import Model
+from pyscipopt_gasse import Model
 import pytest
 import os
 

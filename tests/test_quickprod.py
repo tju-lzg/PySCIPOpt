@@ -1,5 +1,5 @@
-from pyscipopt import Model, quickprod
-from pyscipopt.scip import CONST
+from pyscipopt_gasse import Model, quickprod
+from pyscipopt_gasse.scip import CONST
 from operator import mul
 import functools
 

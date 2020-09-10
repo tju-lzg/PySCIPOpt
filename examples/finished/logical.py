@@ -1,8 +1,8 @@
 ##@file finished/logical.py
 #@brief Tutorial example on how to use AND/OR/XOR constraints
 
-from pyscipopt import Model
-from pyscipopt import quicksum
+from pyscipopt_gasse import Model
+from pyscipopt_gasse import quicksum
 
 """
 

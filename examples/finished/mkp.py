@@ -3,7 +3,7 @@
 """
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
-from pyscipopt import Model, quicksum, multidict
+from pyscipopt_gasse import Model, quicksum, multidict
 
 def mkp(I,J,v,a,b):
     """mkp -- model for solving the multi-constrained knapsack

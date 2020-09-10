@@ -9,7 +9,7 @@ approaches:
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
 
-from pyscipopt import Model, quicksum, multidict
+from pyscipopt_gasse import Model, quicksum, multidict
 
 def scheduling_linear_ordering(J,p,d,w):
     """

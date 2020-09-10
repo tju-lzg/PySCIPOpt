@@ -1,6 +1,6 @@
 import pytest
 
-from pyscipopt import Model, Heur, SCIP_RESULT, quicksum, SCIP_PARAMSETTING, SCIP_HEURTIMING
+from pyscipopt_gasse import Model, Heur, SCIP_RESULT, quicksum, SCIP_PARAMSETTING, SCIP_HEURTIMING
 
 class MyHeur(Heur):
     def heurexec(self, heurtiming, nodeinfeasible):

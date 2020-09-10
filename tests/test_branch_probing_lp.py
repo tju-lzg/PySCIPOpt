@@ -1,4 +1,4 @@
-from pyscipopt import Model, Branchrule, SCIP_RESULT, quicksum
+from pyscipopt_gasse import Model, Branchrule, SCIP_RESULT, quicksum
 
 
 class MyBranching(Branchrule):

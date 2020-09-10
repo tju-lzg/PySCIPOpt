@@ -8,8 +8,8 @@ A workaround to get the resultant as variable is here proposed.
 
 Public Domain, WTFNMFPL Public Licence
 """
-from pyscipopt import Model
-from pyscipopt import quicksum
+from pyscipopt_gasse import Model
+from pyscipopt_gasse import quicksum
 
 def _init():
     model = Model()

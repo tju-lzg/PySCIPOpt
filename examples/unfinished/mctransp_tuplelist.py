@@ -10,7 +10,7 @@ Use tuplelist for selecting arcs.
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
 
-from pyscipopt import Model
+from pyscipopt_gasse import Model
 
 def mctransp(I,J,K,c,d,M):
     """mctransp -- model for solving the Multi-commodity Transportation Problem

@@ -1,4 +1,4 @@
-from pyscipopt import Model, quicksum
+from pyscipopt_gasse import Model, quicksum
 
 def test_knapsack():
     # create solver instance

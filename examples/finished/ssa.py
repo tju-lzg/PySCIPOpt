@@ -5,7 +5,7 @@ Approach: use SOS2 constraints for modeling non-linear functions.
 
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
-from pyscipopt import Model, quicksum, multidict
+from pyscipopt_gasse import Model, quicksum, multidict
 import math
 import random
 

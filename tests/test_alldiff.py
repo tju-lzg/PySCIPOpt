@@ -2,7 +2,7 @@ import pytest
 
 networkx = pytest.importorskip("networkx")
 
-from pyscipopt import Model, Conshdlr, SCIP_RESULT, SCIP_PARAMEMPHASIS, SCIP_PARAMSETTING
+from pyscipopt_gasse import Model, Conshdlr, SCIP_RESULT, SCIP_PARAMEMPHASIS, SCIP_PARAMSETTING
 
 try:
     from types import SimpleNamespace

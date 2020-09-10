@@ -9,7 +9,7 @@ Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
 import math
 import random
-from pyscipopt import Model, quicksum, multidict
+from pyscipopt_gasse import Model, quicksum, multidict
 
 def permutation_flow_shop(n,m,p):
     """gpp -- model for the graph partitioning problem

@@ -5,7 +5,7 @@ Approach: use a convex combination formulation.
 
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
-from pyscipopt import Model, quicksum, multidict
+from pyscipopt_gasse import Model, quicksum, multidict
 
 def eoq(I,F,h,d,w,W,a0,aK,K):
     """eoq --  multi-item capacitated economic ordering quantity model

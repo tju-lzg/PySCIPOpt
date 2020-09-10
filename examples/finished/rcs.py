@@ -3,7 +3,7 @@
 """
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
-from pyscipopt import Model, quicksum, multidict
+from pyscipopt_gasse import Model, quicksum, multidict
 
 def rcs(J,P,R,T,p,c,a,RUB):
     """rcs -- model for the resource constrained scheduling problem

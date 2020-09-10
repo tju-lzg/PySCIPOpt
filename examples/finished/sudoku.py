@@ -3,7 +3,7 @@
 
 #!/usr/bin/env python
 
-from pyscipopt import Model, quicksum
+from pyscipopt_gasse import Model, quicksum
 
 # initial Sudoku values
 init = [5, 3, 0, 0, 7, 0, 0, 0, 0,

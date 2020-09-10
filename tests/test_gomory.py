@@ -1,7 +1,7 @@
 import pytest
 
-from pyscipopt import Model, Sepa, SCIP_RESULT, SCIP_PARAMSETTING
-from pyscipopt.scip import is_memory_freed
+from pyscipopt_gasse import Model, Sepa, SCIP_RESULT, SCIP_PARAMSETTING
+from pyscipopt_gasse.scip import is_memory_freed
 
 class GMI(Sepa):
 

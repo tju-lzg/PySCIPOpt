@@ -3,8 +3,8 @@ import weakref
 
 import pytest
 
-from pyscipopt import Model, Heur, SCIP_RESULT, SCIP_PARAMSETTING, SCIP_HEURTIMING
-from pyscipopt.scip import is_memory_freed
+from pyscipopt_gasse import Model, Heur, SCIP_RESULT, SCIP_PARAMSETTING, SCIP_HEURTIMING
+from pyscipopt_gasse.scip import is_memory_freed
 
 from util import is_optimized_mode
 

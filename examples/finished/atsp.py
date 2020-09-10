@@ -11,7 +11,7 @@ formulations implemented:
 
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
-from pyscipopt import Model, quicksum, multidict
+from pyscipopt_gasse import Model, quicksum, multidict
 
 def mtz(n,c):
     """mtz: Miller-Tucker-Zemlin's model for the (asymmetric) traveling salesman problem

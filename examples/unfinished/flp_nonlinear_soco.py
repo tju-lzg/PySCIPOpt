@@ -13,7 +13,7 @@ Copyright (c) by Joao Pedro PEDROSO, Masahiro MURAMATSU and Mikio KUBO, 2012
 """
 import math
 import random
-from pyscipopt import Model, quicksum, multidict
+from pyscipopt_gasse import Model, quicksum, multidict
 
 def flp_nonlinear_soco(I,J,d,M,f,c):
     """flp_nonlinear_soco --  use

@@ -48,7 +48,7 @@ Platform](https://www.anaconda.com/).
 Installation from PyPI
 ======================
 
-`pip install pyscipopt`
+`pip install pyscipopt_gasse`
 
 On Windows you may need to ensure that the `scip` library can be found
 at runtime by adjusting your `PATH` environment variable:

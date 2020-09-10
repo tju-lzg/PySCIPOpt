@@ -1,5 +1,5 @@
-from pyscipopt import Model
-from pyscipopt.scip import Nodesel
+from pyscipopt_gasse import Model
+from pyscipopt_gasse.scip import Nodesel
 
 class FiFo(Nodesel):
 

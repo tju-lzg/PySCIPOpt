@@ -4,7 +4,7 @@
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
 
-from pyscipopt import Model, quicksum, multidict
+from pyscipopt_gasse import Model, quicksum, multidict
 
 def gcp_fixed_k(V,E,K):
     """gcp_fixed_k -- model for minimizing number of bad edges in coloring a graph
