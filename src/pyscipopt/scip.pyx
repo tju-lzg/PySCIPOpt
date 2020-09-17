@@ -4780,11 +4780,11 @@ cdef class Model:
             row_is_at_rhs[i] = SCIPisEQ(scip, activity, rhs)
             if query is not None:
                 row_name = bytes(SCIProwGetName(rows[i])).decode('utf-8')
-                if query.get(row_name, None) is not None:
-                    query[row_name]['applied'] = True
+                if query['cuts'].get(row_name, None) is not None:
+                    query['cuts'][row_name]['applied'] = True
                     # cycle inequalities in our form are considered tight iff activity == rhs
                     # lhs <= activity + cst <= rhs
-                    query[row_name]['normalized_slack'] = (rhs - activity - cst) / norm  # todo: verify
+                    query['cuts'][row_name]['normalized_slack'] = (rhs - activity - cst) / norm  # todo: verify
 
         cdef np.ndarray[np.uint8_t,   ndim=1] query_cuts_applied
         cdef np.ndarray[np.float32_t, ndim=1] query_cuts_normalized_slack
@@ -4809,12 +4809,9 @@ cdef class Model:
 
             # assign the selection order (for learning from demonstrations)
             for i in range(n_selected_cuts):
-                query[bytes(selected_cuts_ordered_names[i]).decode('utf-8')]['selection_order'] = i
+                query['cuts'][bytes(selected_cuts_ordered_names[i]).decode('utf-8')]['selection_order'] = i
 
-            for i, row in enumerate(query.values()):
-                # the cuts are at the beginning of query, and after that there is non-relevant data
-                if i == query['ncuts']:
-                    break
+            for i, row in enumerate(query['cuts'].values()):
                 query_cuts_applied[i] = row['applied']
                 query_cuts_normalized_slack[i] = row['normalized_slack']
                 query_cuts_selection_order[i] = row['selection_order']
@@ -4875,7 +4872,7 @@ cdef class Model:
         cdef np.ndarray[np.int32_t,   ndim=1] cut_is_in_globalcutpool = np.empty(shape=(ncuts, ), dtype=np.int32)
         cdef np.ndarray[np.int32_t,   ndim=1] cut_is_efficacious      = np.empty(shape=(ncuts, ), dtype=np.int32)
 
-        available_cuts = OrderedDict()
+        available_cuts = {'cuts': OrderedDict()}
         # inter cuts parallelism
         cdef np.ndarray[np.float32_t, ndim=2] cuts_orthogonality      = np.empty(shape=(ncuts, ncuts), dtype=np.float32)
         # total num non-zero coefficients of cuts
@@ -4917,7 +4914,7 @@ cdef class Model:
                 # initialize all tightness penalty to 0, not because they are tight,
                 # but because this value will be used to penalize only applied cuts.
                 # not applied cuts won't be penalized (as for now)
-                available_cuts[bytes(SCIProwGetName(cuts[i])).decode('utf-8')] = {'applied': False, 'normalized_slack': 0, 'selection_order': ncuts}
+                available_cuts['cuts'][bytes(SCIProwGetName(cuts[i])).decode('utf-8')] = {'applied': False, 'normalized_slack': 0, 'selection_order': ncuts}
         available_cuts['ncuts'] = ncuts
         available_cuts['rhss'] = cut_rhss
 
