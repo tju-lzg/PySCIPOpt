@@ -2968,7 +2968,7 @@ cdef class Model:
 
 
     ###########################################
-    #               ilbb methods              #
+    #       branch-search-trees methods       #
     ###########################################
 
     def getNLPIterations(self):
