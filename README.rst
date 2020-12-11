@@ -10,7 +10,7 @@ This project provides an interface from Python to the `SCIP Optimization Suite <
 Installation
 ============
 
-See `INSTALL.rst <INSTALL.rst>`__ for instructions.
+See `INSTALL.md <INSTALL.md>`__ for instructions.
 
 Building and solving a model
 ============================
