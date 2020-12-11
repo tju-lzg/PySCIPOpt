@@ -1,55 +1,112 @@
-Instructions for installation on your own computer
---------------------------------------------------
+Requirements
+============
 
-Install SCIP. The simplest is to download a pre-compiled version, e.g. for linux [[deb](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-Linux.deb)/[rpm](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-Linux.rpm)], Mac [[dmg](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-Darwin.dmg)] or Windows [[exe](http://scip.zib.de/download.php?fname=SCIPOptSuite-5.0.1-win64-VS15.exe)]. Then install our branch of pyscipopt by running `pip install git+https://github.com/ds4dm/PySCIPOpt`.
+PySCIPOpt requires a working installation of the [SCIP Optimization
+Suite](http://scip.zib.de/). Please, make sure that your SCIP installation works!
 
+Note that the latest PySCIPOpt version is usually only compatible with the latest major release of the SCIP Optimization Suite.
+The following table summarizes which version of PySCIPOpt is required for a given SCIP version:
 
-Instructions for installation on rossoverde
--------------------------------------------
+|SCIP| PySCIPOpt |
+|----|----|
+7.0 | 3.0
+6.0 | 2.2, 2.1, 2.0
+5.0 | 1.4, 1.3
+4.0 | 1.2, 1.1
+3.2 | 1.0
 
-Install SCIP. This has several steps:
+If SCIP is not installed in the global path
+you need to specify the install location using the environment variable
+`SCIPOPTDIR`:
 
-1. Make sure you have the latest Cmake version.
-    ```
-    conda install cmake
-    hash -r
-    cmake --version
-    ```
-    It should be at least version 3.0.0.
+-   on Linux and OS X:\
+    `export SCIPOPTDIR=<path_to_install_dir>`
+-   on Windows:\
+    `set SCIPOPTDIR=<path_to_install_dir>` (**cmd**, **Cmder**, **WSL**)\
+    `$Env:SCIPOPTDIR = "<path_to_install_dir>"` (**powershell**)
 
-2. Download the [latest SCIP suite source code](http://scip.zib.de/download.php?fname=scipoptsuite-5.0.1.tgz) in your local workspace and untar it.
+`SCIPOPTDIR` needs to have a subdirectory `lib` that contains the
+library, e.g. `libscip.so` (for Linux) and a subdirectory `include` that
+contains the corresponding header files:
 
-    ```
-    cd /local_workspace/<username>
-    tar -xzf scipoptsuite-5.0.1.tgz /local_workspace/<username>/scipoptsuite-5.0.1
-    ```
+    SCIPOPTDIR
+      > lib
+        > libscip.so ...
+      > include
+        > scip
+        > lpi
+        > nlpi
+        > ...
 
-3. In that folder, edit /local_workspace/&lt;username>/scipoptsuite-5.0.1/CMakeLists.txt and *delete* the lines 16-18:
+If you are not using the installer packages, you need to [install the
+SCIP Optimization Suite using CMake](http://scip.zib.de/doc/html/CMAKE.php).
+The Makefile system is not compatible with PySCIPOpt!
 
-    ```
-    if(${BISON_FOUND} AND ${FLEX_FOUND} AND ${GMP_FOUND})
-      add_subdirectory(zimpl)
-    endif()
-    ```
+On Windows it is highly recommended to use the [Anaconda Python
+Platform](https://www.anaconda.com/).
 
-    This is a hack to prevent cmake from finding ZIMPL, which is not compatible with the latest gcc.
+Installation from PyPI
+======================
 
-4. Create a build folder and run cmake, make and make install with the desired install directory, e.g. /local_workspace/&lt;username>/scipoptsuite.
+`pip install pyscipopt`
 
-    ```
-    cd /local_workspace/<username>/scipoptsuite-5.0.1
-    mkdir build
-    cd build
-    cmake .. -DCMAKE_INSTALL_PREFIX=/local_workspace/<username>/scipoptsuite/
-    make INSTALLDIR=/local_workspace/<username>/scipoptsuite/
-    make install INSTALLDIR=/local_workspace/<username>/scipoptsuite/
-    ```
+On Windows you may need to ensure that the `scip` library can be found
+at runtime by adjusting your `PATH` environment variable:
 
-5. In your bashrc file, add environment variables for pyscipopt.
+-   on Windows: `set PATH=%PATH%;%SCIPOPTDIR%\bin`
 
-    ```
-    export SCIPOPTDIR="/local_workspace/<username>/scipoptsuite"
-    alias scip='/local_workspace/<username>/scipoptsuite/bin/scip'
-    ```
+On Linux and OS X this is encoded in the generated PySCIPOpt library and
+therefore not necessary.
 
-That should be it! Then install pyscipopt by running `pip install git+https://github.com/ds4dm/PySCIPOpt`.
+Building everything from source
+===============================
+
+PySCIPOpt requires [Cython](http://cython.org/), at least version 0.21
+(`pip install cython`). Furthermore, you need to have the Python
+development files installed on your system (error message "Python.h not
+found"):
+
+    sudo apt-get install python-dev   # for Python 2, on Linux
+    sudo apt-get install python3-dev  # for Python 3, on Linux
+
+After setting up `SCIPOPTDIR` as specified above, please run
+
+    pip install [-e] .
+
+Building with debug information
+===============================
+
+To use debug information in PySCIPOpt you need to build it like this:
+
+    pip install [-e] --install-option="--debug" .
+
+Be aware that you will need the **debug library** of the SCIP
+Optimization Suite for this to work
+(`cmake .. -DCMAKE_BUILD_TYPE=Debug`).
+
+Testing new installation
+========================
+
+To test your brand-new installation of PySCIPOpt you need
+[pytest](https://pytest.org/) on your system. Here is the [installation
+procedure](https://docs.pytest.org/en/latest/getting-started.html).
+
+Tests can be run in the `PySCIPOpt` directory with: :
+
+    py.test # all the available tests
+    py.test tests/test_name.py # a specific tests/test_name.py (Unix)
+
+Ideally, the status of your tests must be passed or skipped. Running
+tests with pytest creates the `__pycache__` directory in `tests` and,
+occasionally, a `model` file in the working directory. They can be
+removed harmlessly.
+
+Common errors
+=============
+
+-   readline: `libreadline.so.6: undefined symbol: PC` This is a
+    readline/ncurses compatibility issue that can be fixed like this
+    (when using `conda`):
+
+        conda install -c conda-forge readline=6.2
+
