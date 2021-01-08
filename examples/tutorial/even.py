@@ -3,7 +3,7 @@
 """
 Public Domain, WTFNMFPL Public Licence
 """
-from pyscipopt_gasse import Model
+from pyscipopt import Model
 from pprint import pformat as pfmt
 
 example_values = [
@@ -32,7 +32,7 @@ def parity(number):
     Prints if a value is even/odd/neither per each value in a example list
 
     This example is made for newcomers and motivated by:
-    - modulus is unsupported for pyscipopt_gasse.scip.Variable and int
+    - modulus is unsupported for pyscipopt.scip.Variable and int
     - variables are non-integer by default
     Based on this: #172#issuecomment-394644046
 

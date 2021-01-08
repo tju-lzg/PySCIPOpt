@@ -2,7 +2,7 @@ doc-warnings: true
 test-warnings: true
 ignore-paths:
   - examples/unfinished
-  - src/pyscipopt_gasse/__init__.py
+  - src/pyscipopt/__init__.py
 python-targets:
   - 2
   - 3

@@ -1,7 +1,7 @@
 import pytest
 
-from pyscipopt_gasse import Model, sqrt, log, exp
-from pyscipopt_gasse.scip import Expr, GenExpr, ExprCons, Term, quicksum
+from pyscipopt import Model, sqrt, log, exp
+from pyscipopt.scip import Expr, GenExpr, ExprCons, Term, quicksum
 
 @pytest.fixture(scope="module")
 def model():

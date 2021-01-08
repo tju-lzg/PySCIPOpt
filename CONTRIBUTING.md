@@ -47,7 +47,7 @@ How to craft a release
 ----------------------
 
 1. update `CHANGELOG`
-2. increase version number in `src/pyscipopt_gasse/__init__.py` according to semantic versioning
+2. increase version number in `src/pyscipopt/__init__.py` according to semantic versioning
 3. commit changes to the master branch
 3. tag new version `git tag vX.Y.Z`
 4. `git push` && `git push --tags`

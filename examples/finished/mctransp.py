@@ -8,7 +8,7 @@ customers, from capacitated facilities.
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
 
-from pyscipopt_gasse import Model, quicksum, multidict
+from pyscipopt import Model, quicksum, multidict
 
 def mctransp(I,J,K,c,d,M):
     """mctransp -- model for solving the Multi-commodity Transportation Problem

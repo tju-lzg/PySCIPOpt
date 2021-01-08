@@ -3,7 +3,7 @@
 """
 Copyright (c) by Joao Pedro PEDROSO, Masahiro MURAMATSU and Mikio KUBO, 2012
 """
-from pyscipopt_gasse import Model, quicksum, multidict
+from pyscipopt import Model, quicksum, multidict
 
 def prodmix(I,K,a,p,epsilon,LB):
     """prodmix:  robust production planning using soco

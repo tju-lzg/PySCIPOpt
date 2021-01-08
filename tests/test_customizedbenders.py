@@ -6,7 +6,7 @@ to some facilities with fixed costs and capacities.
 
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
-from pyscipopt_gasse import Model, quicksum, multidict, SCIP_PARAMSETTING, Benders,\
+from pyscipopt import Model, quicksum, multidict, SCIP_PARAMSETTING, Benders,\
       Benderscut, SCIP_RESULT, SCIP_LPSOLSTAT
 
 

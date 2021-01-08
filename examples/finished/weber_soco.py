@@ -3,7 +3,7 @@
 """
 Copyright (c) by Joao Pedro PEDROSO, Masahiro MURAMATSU and Mikio KUBO, 2012
 """
-from pyscipopt_gasse import Model, quicksum, multidict
+from pyscipopt import Model, quicksum, multidict
 
 def weber(I,x,y,w):
     """weber: model for solving the single source weber problem using soco.

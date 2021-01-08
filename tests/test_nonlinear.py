@@ -1,6 +1,6 @@
 import pytest
 
-from pyscipopt_gasse import Model, quicksum, sqrt
+from pyscipopt import Model, quicksum, sqrt
 
 # test string with polynomial formulation (uses only Expr)
 def test_string_poly():

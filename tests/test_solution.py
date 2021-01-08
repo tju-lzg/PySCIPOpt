@@ -1,4 +1,4 @@
-from pyscipopt_gasse import Model
+from pyscipopt import Model
 
 def test_solution_getbest():
     m = Model()

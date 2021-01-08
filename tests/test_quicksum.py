@@ -1,5 +1,5 @@
-from pyscipopt_gasse import Model, quicksum
-from pyscipopt_gasse.scip import CONST
+from pyscipopt import Model, quicksum
+from pyscipopt.scip import CONST
 
 def test_quicksum_model():
     m = Model("quicksum")

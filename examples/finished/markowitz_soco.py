@@ -5,7 +5,7 @@ Approach: use second-order cone optimization.
 
 Copyright (c) by Joao Pedro PEDROSO, Masahiro MURAMATSU and Mikio KUBO, 2012
 """
-from pyscipopt_gasse import Model, quicksum, multidict
+from pyscipopt import Model, quicksum, multidict
 
 def markowitz(I,sigma,r,alpha):
     """markowitz -- simple markowitz model for portfolio optimization.

@@ -13,7 +13,7 @@ Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
 import math
 import random
-from pyscipopt_gasse import Model, quicksum, multidict
+from pyscipopt import Model, quicksum, multidict
 
 def mult_selection(model,a,b):
     """mult_selection -- add piecewise relation with multiple selection formulation

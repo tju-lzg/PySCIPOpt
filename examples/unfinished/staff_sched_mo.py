@@ -8,7 +8,7 @@ Objectives:
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
 import random
-from pyscipopt_gasse import Model, quicksum, multidict
+from pyscipopt import Model, quicksum, multidict
 
 def staff_mo(I,T,N,J,S,c,b):
     """

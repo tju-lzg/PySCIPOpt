@@ -1,5 +1,5 @@
-from pyscipopt_gasse import Model
-from pyscipopt_gasse.scip import Relax
+from pyscipopt import Model
+from pyscipopt.scip import Relax
 
 calls = []
 

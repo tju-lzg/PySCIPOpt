@@ -3,8 +3,8 @@
 """
 Copyright (c) by Joao Pedro PEDROSO and Mikio KUBO, 2012
 """
-# todo: can we make it work as "from pyscipopt_gasse import *"?
-from pyscipopt_gasse import Model, quicksum, multidict
+# todo: can we make it work as "from pyscipopt import *"?
+from pyscipopt import Model, quicksum, multidict
 
 def diet(F,N,a,b,c,d):
     """diet -- model for the modern diet problem

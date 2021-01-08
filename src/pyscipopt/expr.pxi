@@ -205,7 +205,7 @@ cdef class Expr:
         elif isinstance(other, GenExpr):
             # is no longer in place, might affect performance?
             # can't do `self = buildGenExprObj(self) + other` since I get
-            # TypeError: Cannot convert pyscipopt_gasse.scip.SumExpr to pyscipopt.scip.Expr
+            # TypeError: Cannot convert pyscipopt.scip.SumExpr to pyscipopt.scip.Expr
             return buildGenExprObj(self) + other
         else:
             raise NotImplementedError

@@ -1,4 +1,4 @@
-from pyscipopt_gasse import Model, Pricer, SCIP_RESULT, SCIP_PARAMSETTING, quicksum
+from pyscipopt import Model, Pricer, SCIP_RESULT, SCIP_PARAMSETTING, quicksum
 
 class CutPricer(Pricer):
 

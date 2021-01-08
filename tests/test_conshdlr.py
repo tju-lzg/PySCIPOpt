@@ -1,4 +1,4 @@
-from pyscipopt_gasse import Model, Conshdlr, SCIP_RESULT, SCIP_PRESOLTIMING, SCIP_PROPTIMING
+from pyscipopt import Model, Conshdlr, SCIP_RESULT, SCIP_PRESOLTIMING, SCIP_PROPTIMING
 from sys import version_info
 
 if version_info >= (3, 3):

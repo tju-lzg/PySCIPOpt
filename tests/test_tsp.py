@@ -1,4 +1,4 @@
-from pyscipopt_gasse import Model, Conshdlr, quicksum, SCIP_RESULT
+from pyscipopt import Model, Conshdlr, quicksum, SCIP_RESULT
 
 import pytest
 
