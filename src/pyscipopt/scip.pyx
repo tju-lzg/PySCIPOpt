@@ -1079,6 +1079,10 @@ cdef class Model:
         """Retrieve the total number of LP iterations so far."""
         return SCIPgetNLPIterations(self._scip)
 
+    def getNNZs(self):
+        """Retrieve the number of active non-zeros in the current transformed problem."""
+        return SCIPgetNNZs(self._scip)
+
     def getNNodes(self):
         """Retrieve the total number of processed nodes."""
         return SCIPgetNNodes(self._scip)
