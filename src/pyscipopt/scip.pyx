@@ -1383,7 +1383,6 @@ cdef class Model:
             PY_SCIP_CALL(SCIPaddPricedVar(self._scip, scip_var, 1.0))
         else:
             PY_SCIP_CALL(SCIPaddVar(self._scip, scip_var))
-
         pyVar = Variable.create(scip_var)
 
         # store variable in the model to avoid creating new python variable objects in getVars()
@@ -1393,6 +1392,7 @@ cdef class Model:
         #setting the variable data
         SCIPvarSetData(scip_var, <SCIP_VARDATA*>pyVar)
         PY_SCIP_CALL(SCIPreleaseVar(self._scip, &scip_var))
+
         return pyVar
 
     def getTransformedVar(self, Variable var):
@@ -1867,6 +1867,10 @@ cdef class Model:
     def getNCuts(self):
         """Retrieve total number of cuts in storage"""
         return SCIPgetNCuts(self._scip)
+
+    def getNPoolCuts(self):
+        """Returns the current number of rows in the global cut pool"""
+        return SCIPgetNPoolCuts(self._scip)
 
     def getNCutsApplied(self):
         """Retrieve number of currently applied cuts"""
