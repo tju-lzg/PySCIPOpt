@@ -4561,6 +4561,10 @@ cdef class Model:
             names_list.append(bytes(names[i]).decode('utf-8'))
         return names_list
 
+    def sepastoreRemoveDupCuts(self):
+        cdef int ndups = SCIPsepastoreRemoveDupCuts(self._scip)
+        return ndups
+
     def getState(self, prev_state=None, state_format='dict', query=None, get_available_cuts=False):
         """
 
@@ -4857,6 +4861,8 @@ cdef class Model:
         # CUTS
         # TODO: In our setting, some of the features below are always zero.
         # Consider to filter them here to save runtime.
+        # todo - filter duplicated cuts with the same name
+        cdef int ndups = SCIPsepastoreRemoveDupCuts(scip)
         cdef int ncuts = SCIPgetNCuts(scip)
         cdef SCIP_ROW** cuts = SCIPgetCuts(scip)
         cdef np.ndarray[np.float32_t, ndim=1] cut_lhss                = np.empty(shape=(ncuts, ), dtype=np.float32)
