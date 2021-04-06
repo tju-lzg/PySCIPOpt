@@ -4914,7 +4914,7 @@ cdef class Model:
             cuts_orthogonality[i,i] = 1.0  # change only for computing the minortho value
             cut_minortho[i] = np.min(cuts_orthogonality[i,:])
             cuts_orthogonality[i,i] = 0.0  # reset to the correct value
-            cut_is_local[i] = SCIProwIsLocal(rows[i])
+            cut_is_local[i] = SCIProwIsLocal(cuts[i])
             cut_is_modifiable[i] = SCIProwIsModifiable(cuts[i])
             cut_is_removable[i] = SCIProwIsRemovable(cuts[i])
             cut_is_in_globalcutpool[i] = SCIProwIsInGlobalCutpool(cuts[i])  # cut.isInGlobalCutpool()
