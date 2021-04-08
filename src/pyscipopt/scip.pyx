@@ -4565,7 +4565,7 @@ cdef class Model:
         cdef int ndups = SCIPsepastoreRemoveDupCuts(self._scip)
         return ndups
 
-    def getState(self, prev_state=None, state_format='dict', query=None, get_available_cuts=False):
+    def getState(self, prev_state=None, state_format='dict', query=None, get_available_cuts=False, use_lhs_feature=False):
         """
 
         :param prev_state:
@@ -4746,7 +4746,7 @@ cdef class Model:
 
                 # left-hand-side
                 if SCIPisInfinity(scip, REALABS(lhs)):
-                    row_lhss[i] = 0 # todo: for some reason the lhs of the mccormick constraints doesn't exists, and results in NAN, although it should be 0
+                    row_lhss[i] = NAN # todo: for some reason the lhs of the mccormick constraints doesn't exists, and results in NAN, although it should be 0
                 else:
                     row_lhss[i] = lhs - cst
 
@@ -5028,8 +5028,8 @@ cdef class Model:
             }
 
         elif state_format == 'tensor':
+            # features of constraint nodes
             Cfeats = [
-                'lhss',
                 'rhss',
                 'nnzrs',
                 'dualsols',
@@ -5043,7 +5043,8 @@ cdef class Model:
                 'is_local',
                 'is_modifiable',
                 'is_removable',
-            ] # features of constraint nodes
+            ]
+            # features of variable nodes
             Vfeats = [
                 'types',
                 'coefs',
@@ -5058,9 +5059,9 @@ cdef class Model:
                 'sol_is_at_ub',
                 'incvals',
                 'avgincvals',
-            ] # features of variable nodes
+            ]
+            # features of cut nodes
             Afeats = [
-                'lhss',
                 'rhss',
                 'nnzrs',
                 'ages',
@@ -5076,8 +5077,7 @@ cdef class Model:
                 'is_removable',
                 'is_in_globalcutpool',
                 'is_efficacious',
-            ] # features of cut nodes
-
+            ]
             V = np.vstack([
                 col_types,
                 col_coefs,
@@ -5094,7 +5094,6 @@ cdef class Model:
                 col_avgincvals,
             ]).astype(np.float32).T
             C = np.vstack([
-                row_lhss,
                 row_rhss,
                 row_nnzrs,
                 row_dualsols,
@@ -5110,7 +5109,6 @@ cdef class Model:
                 row_is_removable,
             ]).astype(np.float32).T
             A = np.vstack([
-                cut_lhss,
                 cut_rhss,
                 cut_nnzrs,
                 cut_ages,
@@ -5127,6 +5125,13 @@ cdef class Model:
                 cut_is_in_globalcutpool,
                 cut_is_efficacious,
             ]).astype(np.float32).T
+
+            if use_lhs_feature:
+                Cfeats.insert(0, 'lhss')
+                Afeats.insert(0, 'lhss')
+                np.concatenate((row_lhss, C), axis=0)
+                np.concatenate((cut_lhss, A), axis=0)
+
 
             state = {
                 'C': C,
