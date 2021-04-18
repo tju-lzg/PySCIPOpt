@@ -4748,13 +4748,13 @@ cdef class Model:
                 if SCIPisInfinity(scip, REALABS(lhs)):
                     row_lhss[i] = NAN # todo: for some reason the lhs of the mccormick constraints doesn't exists, and results in NAN, although it should be 0
                 else:
-                    row_lhss[i] = lhs - cst
+                    row_lhss[i] = lhs #- cst  # todo what about this cst?
 
                 # right-hand-side
                 if SCIPisInfinity(scip, REALABS(rhs)):
                     row_rhss[i] = NAN
                 else:
-                    row_rhss[i] = rhs - cst
+                    row_rhss[i] = rhs #- cst  # todo what about this cst?
 
                 # row properties
                 row_is_local[i] = SCIProwIsLocal(rows[i])
@@ -4781,7 +4781,7 @@ cdef class Model:
             row_ages[i] = SCIProwGetAge(rows[i])
 
             # Activity
-            row_activities[i] = activity - cst
+            row_activities[i] = activity #- cst
 
             # Is tight todo - where is cst here?
             row_is_at_lhs[i] = SCIPisEQ(scip, activity, lhs)
@@ -4792,7 +4792,7 @@ cdef class Model:
                     query['cuts'][row_name]['applied'] = True
                     # cycle inequalities in our form are considered tight iff activity == rhs
                     # lhs <= activity + cst <= rhs
-                    query['cuts'][row_name]['normalized_slack'] = (rhs - activity - cst) / norm  # todo: verify
+                    query['cuts'][row_name]['normalized_slack'] = (rhs - activity) / norm  # todo: verify removing - cst
 
         cdef np.ndarray[np.uint8_t,   ndim=1] query_cuts_applied
         cdef np.ndarray[np.float32_t, ndim=1] query_cuts_normalized_slack
@@ -4894,8 +4894,8 @@ cdef class Model:
             rhs = SCIProwGetRhs(cuts[i])
             cst = SCIProwGetConstant(cuts[i])
             # cut_rhss[i] = cst  # ?
-            cut_lhss[i] = NAN if SCIPisInfinity(scip, REALABS(lhs)) else lhs - cst
-            cut_rhss[i] = NAN if SCIPisInfinity(scip, REALABS(rhs)) else rhs - cst
+            cut_lhss[i] = NAN if SCIPisInfinity(scip, REALABS(lhs)) else lhs #- cst
+            cut_rhss[i] = NAN if SCIPisInfinity(scip, REALABS(rhs)) else rhs #- cst
             cut_nnzrs[i] = SCIProwGetNNonz(cuts[i])
             cut_ages[i] = SCIProwGetAge(cuts[i])
             cut_norms[i] = SCIProwGetNorm(cuts[i])  # cst ?
