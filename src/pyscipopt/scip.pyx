@@ -3681,6 +3681,7 @@ cdef class Model:
         PY_SCIP_CALL(SCIPbranchVarVal(self._scip, (<Variable>variable).scip_var, value, &downchild, &eqchild, &upchild))
 
         return Node.create(downchild), Node.create(eqchild), Node.create(upchild)
+        
 
     def calcNodeselPriority(self, Variable variable, branchdir, targetvalue):
         """calculates the node selection priority for moving the given variable's LP value
@@ -4595,6 +4596,56 @@ cdef class Model:
         """
         assert isinstance(var, Variable), "The given variable is not a pyvar, but %s" % var.__class__.__name__
         PY_SCIP_CALL(SCIPchgVarBranchPriority(self._scip, var.scip_var, priority))
+
+    ################################
+    #      methods added by gz     #
+    ################################
+
+    def getFairNNodes(self, brancher_name):
+        """Returns the number of fair nodes for the specified branching rule.
+        
+        :param brancher_name: str, name of the branching rule 
+        """
+        brancher = SCIPfindBranchrule(self._scip, brancher_name)
+        fair = SCIPgetNNodes(self._scip) + 2*SCIPbranchruleGetNCutoffs(brancher) + 2*SCIPbranchruleGetNDomredsFound(brancher)
+        return fair  
+    
+    def getNNodesLeft(self):
+        """Return the number of nodes left (leaves + children + siblings)."""
+        return SCIPgetNNodesLeft(self._scip)
+        
+    def getPrimalDualIntegral(self):
+        """Return the primal dual integral."""
+        return self._scip.stat.primaldualintegral
+        
+    def getLPObjval(self):
+        """Return the objective value of current LP (which is the sum of column and loose objective value)."""
+        return SCIPgetLPObjval(self._scip)
+    
+    def getMaxDepth(self):
+        """Get max depth."""
+        return SCIPgetMaxDepth(self._scip)
+         
+    def getNDiscreteVars(self, transformed=False):
+        """Get number of binary + integer variables.
+    
+        :param transformed: bool, get transformed variables instead of original (Default value = False)
+        """
+        return SCIPgetNBinVars(self._scip) + SCIPgetNIntVars(self._scip)
+
+    def executeBranchRule(self, str name, allowaddcons):
+        cdef SCIP_BRANCHRULE*  branchrule
+        cdef SCIP_RESULT result
+        branchrule = SCIPfindBranchrule(self._scip, name.encode("UTF-8"))
+        if branchrule == NULL:
+            print("Error, branching rule not found!")
+            return PY_SCIP_RESULT.DIDNOTFIND
+        else:
+            branchrule.branchexeclp(self._scip, branchrule, allowaddcons, &result)
+            return result
+
+            
+    ################################
 
 # debugging memory management
 def is_memory_freed():
