@@ -288,9 +288,11 @@ cdef extern from "scip/scip.h":
     
     ctypedef struct SCIP:
         SCIP_STAT* stat  # gz-added
+        # pass
 
     ctypedef struct SCIP_VAR:
         SCIP_HISTORY*  historycrun  # gz-added
+        # pass
 
     ctypedef struct SCIP_CONS:
         pass
@@ -1276,8 +1278,6 @@ cdef extern from "scip/scip.h":
     SCIP_Bool    SCIPlpiIsInfinity(SCIP_LPI* lpi, SCIP_Real val)
     SCIP_Bool    SCIPlpiIsPrimalFeasible(SCIP_LPI* lpi)
     SCIP_Bool    SCIPlpiIsDualFeasible(SCIP_LPI* lpi)
-    
-    SCIP_Real    SCIPgetLPObjval(SCIP *scip)
 
     #re-optimization routines
     SCIP_RETCODE SCIPfreeReoptSolve(SCIP* scip)
@@ -1694,8 +1694,8 @@ cdef extern from "scip/struct_branch.h":
 
 cdef extern from "scip/scip_var.h":
     SCIP_RETCODE SCIPchgVarBranchPriority(SCIP* scip, SCIP_VAR* var, int branchpriority)
-
-# gz-added    
+    
+# gz-added
 cdef extern from "scip/type_history.h":
     ctypedef struct SCIP_HISTORY:
         SCIP_Real 	pscostcount [2]
@@ -1714,8 +1714,8 @@ cdef extern from "scip/type_history.h":
         SCIP_BRANCHDIR_UPWARDS   = 1
         SCIP_BRANCHDIR_FIXED     = 2
         SCIP_BRANCHDIR_AUTO      = 3
- 
-# gz-added   
+
+# gz-added
 cdef extern from "scip/struct_stat.h":
     ctypedef struct SCIP_STAT:
         SCIP_HISTORY * 	glbhistory

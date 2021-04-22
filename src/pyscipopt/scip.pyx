@@ -4597,26 +4597,14 @@ cdef class Model:
         assert isinstance(var, Variable), "The given variable is not a pyvar, but %s" % var.__class__.__name__
         PY_SCIP_CALL(SCIPchgVarBranchPriority(self._scip, var.scip_var, priority))
 
+
     ################################
     #      methods added by gz     #
     ################################
-
-    def getFairNNodes(self, brancher_name):
-        """Returns the number of fair nodes for the specified branching rule.
-        
-        :param brancher_name: str, name of the branching rule 
-        """
-        brancher = SCIPfindBranchrule(self._scip, brancher_name)
-        fair = SCIPgetNNodes(self._scip) + 2*SCIPbranchruleGetNCutoffs(brancher) + 2*SCIPbranchruleGetNDomredsFound(brancher)
-        return fair  
     
     def getNNodesLeft(self):
         """Return the number of nodes left (leaves + children + siblings)."""
         return SCIPgetNNodesLeft(self._scip)
-        
-    def getPrimalDualIntegral(self):
-        """Return the primal dual integral."""
-        return self._scip.stat.primaldualintegral
         
     def getLPObjval(self):
         """Return the objective value of current LP (which is the sum of column and loose objective value)."""
@@ -4632,7 +4620,20 @@ cdef class Model:
         :param transformed: bool, get transformed variables instead of original (Default value = False)
         """
         return SCIPgetNBinVars(self._scip) + SCIPgetNIntVars(self._scip)
-
+    
+    def getPrimalDualIntegral(self):
+        """Return the primal dual integral."""
+        return self._scip.stat.primaldualintegral
+        
+    def getFairNNodes(self, brancher_name):
+        """Returns the number of fair nodes for the specified branching rule.
+    
+        :param brancher_name: str, name of the branching rule 
+        """
+        brancher = SCIPfindBranchrule(self._scip, brancher_name)
+        fair = SCIPgetNNodes(self._scip) + 2*SCIPbranchruleGetNCutoffs(brancher) + 2*SCIPbranchruleGetNDomredsFound(brancher)
+        return fair  
+        
     def executeBranchRule(self, str name, allowaddcons):
         cdef SCIP_BRANCHRULE*  branchrule
         cdef SCIP_RESULT result
@@ -4643,7 +4644,6 @@ cdef class Model:
         else:
             branchrule.branchexeclp(self._scip, branchrule, allowaddcons, &result)
             return result
-
             
     ################################
 
