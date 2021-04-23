@@ -4632,7 +4632,15 @@ cdef class Model:
         """
         brancher = SCIPfindBranchrule(self._scip, brancher_name)
         fair = SCIPgetNNodes(self._scip) + 2*SCIPbranchruleGetNCutoffs(brancher) + 2*SCIPbranchruleGetNDomredsFound(brancher)
-        return fair  
+        return fair 
+        
+    def getSideEffects(self, brancher_name):
+        """Returns a tuple with side-effect information (constarints, cutoffs, dom. reductions)
+        
+        :param brancher_name: str, name of the branching rule 
+        """
+        brancher = SCIPfindBranchrule(self._scip, brancher_name)
+        return (SCIPbranchruleGetNCutoffs(brancher), SCIPbranchruleGetNConssFound(brancher), SCIPbranchruleGetNDomredsFound(brancher))
         
     def executeBranchRule(self, str name, allowaddcons):
         cdef SCIP_BRANCHRULE*  branchrule

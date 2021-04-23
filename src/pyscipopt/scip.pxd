@@ -370,6 +370,9 @@ cdef extern from "scip/scip.h":
 
     ctypedef struct SCIP_BRANCHRULE:  # gz-added
         char* name
+        # SCIP_Longint ncutoffs
+        # SCIP_Longint nconssfound
+        # SCIP_Longint ndomredsfound
         SCIP_RETCODE (*branchexeclp)(SCIP* scip, SCIP_BRANCHRULE* branchrule, SCIP_Bool allowaddcons, SCIP_RESULT* result)
         # pass
 
@@ -1106,6 +1109,7 @@ cdef extern from "scip/scip.h":
     SCIP_BRANCHRULEDATA* SCIPbranchruleGetData(SCIP_BRANCHRULE* branchrule)
     const char* SCIPbranchruleGetName(SCIP_BRANCHRULE* branchrule)
     SCIP_BRANCHRULE* SCIPfindBranchrule(SCIP* scip, const char*  name)
+    
 
     # Benders' decomposition plugin
     SCIP_RETCODE SCIPincludeBenders(SCIP* scip,
@@ -1195,8 +1199,8 @@ cdef extern from "scip/scip.h":
                                       SCIP_Real** lpcandsfrac, int* nlpcands, int* npriolpcands, int* nfracimplvars)
     SCIP_RETCODE SCIPgetPseudoBranchCands(SCIP* scip, SCIP_VAR*** pseudocands, int* npseudocands, int* npriopseudocands)
     SCIP_Longint SCIPbranchruleGetNCutoffs(SCIP_BRANCHRULE* branchrule)  # gz-added
-    SCIP_Longint SCIPbranchruleGetNDomredsFound(SCIP_BRANCHRULE* branchrule)  #gz-added
-
+    SCIP_Longint SCIPbranchruleGetNDomredsFound(SCIP_BRANCHRULE* branchrule)  # gz-added
+    SCIP_Longint SCIPbranchruleGetNConssFound(SCIP_BRANCHRULE* branchrule)  # gz-added	
 
     # Numerical Methods
     SCIP_Real SCIPinfinity(SCIP* scip)
