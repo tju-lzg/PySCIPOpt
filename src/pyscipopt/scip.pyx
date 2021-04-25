@@ -4863,6 +4863,7 @@ cdef class Model:
         # Consider to filter them here to save runtime.
         # todo - filter duplicated cuts with the same name
         cdef int ndups = SCIPsepastoreRemoveDupCuts(scip)
+        cdef int ninfiniterhs = SCIPsepastoreRemoveInfiniteRhsCuts(scip)
         cdef int ncuts = SCIPgetNCuts(scip)
         cdef SCIP_ROW** cuts = SCIPgetCuts(scip)
         cdef np.ndarray[np.float32_t, ndim=1] cut_lhss                = np.empty(shape=(ncuts, ), dtype=np.float32)
