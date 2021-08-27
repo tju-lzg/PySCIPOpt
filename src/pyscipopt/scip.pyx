@@ -4606,6 +4606,10 @@ cdef class Model:
         """Return the number of nodes left (leaves + children + siblings)."""
         return SCIPgetNNodesLeft(self._scip)
         
+    def getFirstLPDualboundRoot(self):
+        """Return dual bound for the original problem obtained by the first LP solve at the root node."""
+        return SCIPgetFirstLPDualboundRoot(self._scip)
+        
     def getLPObjval(self):
         """Return the objective value of current LP (which is the sum of column and loose objective value)."""
         return SCIPgetLPObjval(self._scip)

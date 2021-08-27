@@ -757,6 +757,7 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPgetLPBInvARow(SCIP* scip, int r, SCIP_Real* binvrow, SCIP_Real* coefs, int* inds, int* ninds)
     SCIP_RETCODE SCIPconstructLP(SCIP* scip, SCIP_Bool* cutoff)
     SCIP_Real SCIPgetLPObjval(SCIP* scip)
+    SCIP_Real SCIPgetFirstLPDualboundRoot(SCIP* scip)
     SCIP_Bool SCIPisLPSolBasic(SCIP* scip)
     SCIP_LPSOLSTAT SCIPgetLPSolstat(SCIP* scip)
     int SCIPgetNLPRows(SCIP* scip)
